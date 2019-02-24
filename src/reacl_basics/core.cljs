@@ -19,7 +19,8 @@
     (apply f args)
     (apply f {} args)))
 
-(reacl/defclass ^{:doc "A non-app-state class that does nothing but render as `content`."}
+(reacl/defclass ^{:doc "A non-app-state class that does nothing but render as `content`."
+                  :arglists '([content])}
   identity
   this [content]
   render content)
@@ -29,10 +30,16 @@
   (-invoke [this state action]
     (apply f state action args)))
 
-(defn action-reducer [f & args]
+(defn action-reducer
+  "Returns a functions that takes `[app-state action]` as arguments, and then calls `f` on them and any additional `args`."
+  [f & args]
   (ActionReducer. f args))
 
-(defn reduce-action [elem f & args]
+(defn reduce-action
+  "Pipes all actions produced by the given component `elem`
+  through `(f app-state action & args)`, where `app-state` is
+  undefined if `elem` is an instance of a non-app-state class."
+  [elem f & args] ;; TODO: I'm still not convinced that this should be possible; should take a class, and an action-reducer.
   (identity (reacl/opt :reduce-action
                        (apply action-reducer f args))
             elem))
