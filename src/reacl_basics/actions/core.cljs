@@ -82,8 +82,8 @@
   (defn message-action
     "Creates an action that sends messages to the component
   `target`. One message may be directly returned by `f`, which is
-  delivered to `target` immediately, unless it's nil. More can be send
-  asynchronously with an `send!` function that is passed as the first
+  delivered to `target` immediately, unless it's nil. More can be sent
+  later with an `send!` function that is passed as the first
   argument to `f`."
     [target f & args]
     (action msg-a target f args)))
