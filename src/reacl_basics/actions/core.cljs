@@ -27,6 +27,7 @@
             (let [r1 (a1 state)
                   st2 (reacl/right-state state (core/returned-app-state r1))
                   r2 (a2 st2)]
+              ;; TODO: add all messages together
               (-> (reduce #(core/add-returned-action %1 %2)
                           r2
                           (core/returned-actions r1))
@@ -87,3 +88,11 @@
   argument to `f`."
     [target f & args]
     (action msg-a target f args)))
+
+(letfn [(cnst [send! message]
+          message)]
+  (defn single-message-action
+    "Creates an action that sends the given messages to the component
+  `target`."
+    [target message]
+    (message-action target cnst message)))

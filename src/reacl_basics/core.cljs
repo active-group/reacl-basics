@@ -1,6 +1,6 @@
 (ns reacl-basics.core
   (:require [reacl2.core :as reacl])
-  (:refer-clojure :exclude [identity]))
+  (:refer-clojure :exclude [constantly]))
 
 (defn ^:no-doc attributes? [v] ;; TODO: should be public in reacl.
   (and (map? v)
@@ -19,9 +19,9 @@
     (apply f args)
     (apply f {} args)))
 
-(reacl/defclass ^{:doc "A non-app-state class that does nothing but render as `content`."
+(reacl/defclass ^{:doc "A non-app-state class that always renders as `content` and does nothing else."
                   :arglists '([content])}
-  identity
+  constantly
   this [content]
   render content)
 
@@ -40,9 +40,9 @@
   through `(f app-state action & args)`, where `app-state` is
   undefined if `elem` is an instance of a non-app-state class."
   [elem f & args] ;; TODO: I'm still not convinced that this should be possible; should take a class, and an action-reducer.
-  (identity (reacl/opt :reduce-action
-                       (apply action-reducer f args))
-            elem))
+  (constantly (reacl/opt :reduce-action
+                         (apply action-reducer f args))
+              elem))
 
 (defn- return-tuples [& l]
   (apply reacl/return (apply concat l)))
