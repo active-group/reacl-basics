@@ -2,7 +2,8 @@
   "Utilites to defines actions and utilities to specialize and execute
   them."
   (:require [reacl-basics.core :as core]
-            [reacl2.core :as reacl]))
+            [reacl2.core :as reacl])
+  (:refer-clojure :exclude [comp]))
 
 (defrecord ^:no-doc Action [f args]
   IFn
@@ -38,7 +39,7 @@
             (= a1 nothing) a2
             (= a2 nothing) a1
             :else (action comp-a a1 a2)))]
-  (defn comp-actions
+  (defn comp
     "Returns the sequential composition of executing all the given actions from left to right"
     [& actions]
     (reduce comp-a_
@@ -61,7 +62,7 @@
 (letfn [(ext-a [state f args]
           (apply f args)
           (reacl/return))]
-  (defn external-action
+  (defn external
     "Creates an action that is executed solely by the side effects of
   applying `f` to `args`, i.e. is has an external effect that does not
   depend or modify an application state."
@@ -80,7 +81,7 @@
                 (reacl/return :message [target msg])
                 (goog.async.nextTick (fn [] (send! msg))))
               (reacl/return))))]
-  (defn message-action
+  (defn async-messages
     "Creates an action that sends messages to the component
   `target`. One message may be directly returned by `f`, which is
   delivered to `target` immediately, unless it's nil. More can be sent
@@ -91,8 +92,8 @@
 
 (letfn [(cnst [send! message]
           message)]
-  (defn single-message-action
-    "Creates an action that sends the given messages to the component
+  (defn message
+    "Creates an action that sends the given message to the component
   `target`."
     [target message]
-    (message-action target cnst message)))
+    (async-messages target cnst message)))

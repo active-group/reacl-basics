@@ -7,7 +7,7 @@
 (defn clear-timeout
   "Returns an action that will clear the timeout with the given id."
   [id]
-  (core/external-action js/window.clearTimeout id))
+  (core/external js/window.clearTimeout id))
 
 (letfn [(tmo [send! make-id-message ms message]
           (make-id-message (js/window.setTimeout (fn []
@@ -18,7 +18,7 @@
   to it with an id that can be used to clear the timeout
   with [[clear-timeout]]."
     [target make-id-message ms message]
-    (core/message-action target tmo make-id-message ms message)))
+    (core/async-messages target tmo make-id-message ms message)))
 
 (letfn [(ntk [send! message]
           (goog.async.nextTick (fn []
@@ -29,19 +29,19 @@
   a [[timeout]] with 0 milliseconds."
     [target message]
     ;; Note: next-tick cannot be cancelled. (don't know if that is a flaw in goog.async.nextTick or not)
-    (core/message-action target ntk message)))
+    (core/async-messages target ntk message)))
 
 (defn restart-timeout
   "Returns an action that tries to clear the timeout with the given
   `prev-id`, if not `nil`, and then starts a new [[timeout]] with the given args."
   [target prev-id make-id-message ms message]
   (cond->> (timeout target make-id-message ms message)
-    prev-id (core/comp-actions (clear-timeout prev-id))))
+    prev-id (core/comp (clear-timeout prev-id))))
 
 (defn clear-interval
   "Returns an action that will clear the interval with the given id."
   [id]
-  (core/external-action js/window.clearTimeout id))
+  (core/external js/window.clearTimeout id))
 
 (letfn [(intv [send! make-id-message ms message-fn initial-state]
           (let [state (atom initial-state)]
@@ -60,7 +60,7 @@
     ([target make-id-message ms message-fn]
      (interval* target make-id-message ms message-fn nil))
     ([target make-id-message ms message-fn initial-state]
-     (core/message-action target intv make-id-message ms message-fn initial-state))))
+     (core/async-messages target intv make-id-message ms message-fn initial-state))))
 
 (defn interval
   "Returns an action that will send `message` to `target` every `ms`
@@ -73,7 +73,7 @@
 (defn go-back
   "Returns an action that will instruct the browser to go one step back in its history."
   []
-  (core/external-action js/window.history.back)) ;; TODO: need fn.
+  (core/external js/window.history.back)) ;; TODO: need fn.
 
 ;; TODO: window.open, window.print ?
 (defn reload
@@ -81,10 +81,10 @@
   page, optionally by clearing its caches before that."
   ([] (reload false))
   ([clear-cache?]
-   (core/external-action js/window.location.reload (boolean clear-cache?)))) ;; TODO: need fn
+   (core/external js/window.location.reload (boolean clear-cache?)))) ;; TODO: need fn
 
 (defn cancel-animation-frame [id]
-  (core/external-action js/window.cancelAnimationFrame id))
+  (core/external js/window.cancelAnimationFrame id))
 
 (letfn [(raf [send! make-id-message make-message]
           (make-id-message (js/window.requestAnimationFrame (fn [timestamp]
@@ -95,11 +95,11 @@
   with an id that can be used with `cancel-animation-frame`
   immediately."
     [target make-id-message make-message]
-    (core/message-action target raf make-id-message make-message)))
+    (core/async-messages target raf make-id-message make-message)))
 
 (letfn [(cancel-af [id] (js/window.cancelAnimationFrame id))]
   (defn cancel-animation-frames [id]
-    (core/external-action cancel-af @id)))
+    (core/external cancel-af @id)))
 
 (letfn [(rafs [send! make-id-message make-message]
           (let [id (atom nil)
@@ -115,7 +115,7 @@
   immediately."
     [target make-id-message make-message]
     (assert make-message)
-    (core/message-action target rafs make-id-message make-message)))
+    (core/async-messages target rafs make-id-message make-message)))
 
 ;; scrolling
 ;; resizing
