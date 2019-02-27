@@ -1,6 +1,6 @@
 (ns reacl-basics.subs.time
   "Subscribables that have to do with time."
-  (:require [reacl-basics.subscriptions.core :as core]
+  (:require [reacl-basics.subs.core :as core]
             [reacl-basics.actions.core :as actions]
             [reacl-basics.actions.browser :as browser])
   (:refer-clojure :exclude [delay sequence]))
