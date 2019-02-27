@@ -34,8 +34,8 @@
 (defn restart-timeout
   "Returns an action that tries to clear the timeout with the given
   `prev-id`, if not `nil`, and then starts a new [[timeout]] with the given args."
-  [prev-id make-id-message ms message]
-  (cond->> (timeout make-id-message ms message)
+  [target prev-id make-id-message ms message]
+  (cond->> (timeout target make-id-message ms message)
     prev-id (core/comp-actions (clear-timeout prev-id))))
 
 (defn clear-interval
@@ -73,7 +73,7 @@
 (defn go-back
   "Returns an action that will instruct the browser to go one step back in its history."
   []
-  (core/external-action js/window.history.back))
+  (core/external-action js/window.history.back)) ;; TODO: need fn.
 
 ;; TODO: window.open, window.print ?
 (defn reload
@@ -81,7 +81,7 @@
   page, optionally by clearing its caches before that."
   ([] (reload false))
   ([clear-cache?]
-   (core/external-action js/window.location.reload (boolean clear-cache?))))
+   (core/external-action js/window.location.reload (boolean clear-cache?)))) ;; TODO: need fn
 
 (defn cancel-animation-frame [id]
   (core/external-action js/window.cancelAnimationFrame id))
@@ -97,14 +97,15 @@
     [target make-id-message make-message]
     (core/message-action target raf make-id-message make-message)))
 
-(defn cancel-animation-frames [id]
-  (core/external-action js/window.cancelAnimationFrame @id))
+(letfn [(cancel-af [id] (js/window.cancelAnimationFrame id))]
+  (defn cancel-animation-frames [id]
+    (core/external-action cancel-af @id)))
 
 (letfn [(rafs [send! make-id-message make-message]
           (let [id (atom nil)
                 action (fn action [timestamp]
-                         (send! (make-message timestamp))
-                         (reset! id (js/window.requestAnimationFrame action)))]
+                         (reset! id (js/window.requestAnimationFrame action))
+                         (send! (make-message timestamp)))]
             (reset! id (js/window.requestAnimationFrame action))
             (make-id-message id)))]
   (defn request-animation-frames
@@ -113,6 +114,7 @@
   with an id that can be used with `cancel-animation-frames`
   immediately."
     [target make-id-message make-message]
+    (assert make-message)
     (core/message-action target rafs make-id-message make-message)))
 
 ;; scrolling

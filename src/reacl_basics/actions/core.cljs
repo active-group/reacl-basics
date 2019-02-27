@@ -41,7 +41,7 @@
   (defn comp-actions
     "Returns the sequential composition of executing all the given actions from left to right"
     [& actions]
-    (reduce (comp-a_ %1 %2)
+    (reduce comp-a_
             nothing
             actions)))
 
@@ -72,9 +72,9 @@
           (let [allowed (atom false)
                 send! (fn [msg]
                         (when-not @allowed
-                          (throw (ex-info "Messages must only be emitted asynchronously by the send! function.")))
+                          (throw (ex-info "Messages must only be emitted asynchronously by the send! function." {:message msg})))
                         (reacl/send-message! target msg))]
-            (if-let [msg (try (apply f args)
+            (if-let [msg (try (apply f send! args)
                               (finally (reset! allowed true)))]
               (if false ;; FIXME, when reacl supports message returns.
                 (reacl/return :message [target msg])

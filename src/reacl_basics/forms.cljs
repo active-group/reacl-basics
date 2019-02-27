@@ -67,7 +67,7 @@
   "An app-state class with an optional `attrs` argument, which renders
   as a `dom/textarea` with the app-state as the editable content."
   ([] [attrs])
-  (cl/interactive-value-class "textarea" dom/text-area))
+  (cl/interactive-value-class "textarea" dom/textarea))
 
 (c/defn-pseudo select
   "A non-app-state class with an optional `attrs` argument and

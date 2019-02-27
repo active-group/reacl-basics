@@ -1,5 +1,5 @@
 (ns reacl-basics.core
-  (:require [reacl2.core :as reacl])
+  (:require [reacl2.core :as reacl :include-macros true])
   (:refer-clojure :exclude [constantly]))
 
 (defn ^:no-doc attributes? [v] ;; TODO: should be public in reacl.
@@ -49,13 +49,13 @@
 
 (defn- returned-tuples [r]
   ;; FIXME: reacl should expose something for this:
-  (assert (instace? reacl/Effects r))
+  (assert (instance? reacl/Effects r))
   (let [v (vec (:args r))]
     (assert (even? (count v)))
     (map (fn [i]
-           [(get prev i) (get prev (inc i))])
+           [(get v i) (get v (inc i))])
          (map #(* 2 %)
-              (range (/ (count prev) 2))))))
+              (range (/ (count v) 2))))))
 
 (defn- returned-state [r st]
   (or (second (first (filter #(= st (first %))

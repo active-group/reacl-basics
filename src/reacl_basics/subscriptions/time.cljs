@@ -1,8 +1,9 @@
 (ns reacl-basics.subscriptions.time
   "Subscriptions that have to do with time."
   (:require [reacl-basics.subscriptions.core :as core]
+            [reacl-basics.actions.core :as actions]
             [reacl-basics.actions.browser :as browser])
-  (:refer-clojure :exclude [delay]))
+  (:refer-clojure :exclude [delay sequence]))
 
 
 (letfn [(delay-sub [target make-id-message make-value-message value ms]
@@ -10,32 +11,31 @@
   (defn delay
     "Returns a subscription that will yield `value` after a timeout of `ms` milliseconds."
     [value ms]
-    (core/simple-subscription browser/cancel-timeout
+    (core/simple-subscription browser/clear-timeout
                               delay-sub value ms)))
 
 (letfn [(step [[make-value-message value-seq]]
           [(make-value-message (first value-seq)) [make-value-message (rest value-seq)]])
         (seq-sub [target make-id-message make-value-message value-seq ms]
-          (actions/comp (actions/message-action target (constantly (make-value-message (first value-seq))))
-                        (browser/interval* target make-id-message ms step [make-value-message (rest value-seq)])))
+          (actions/comp-actions (actions/message-action target (constantly (make-value-message (first value-seq))))
+                                (browser/interval* target make-id-message ms step [make-value-message (rest value-seq)])))
         (seq-unsub [[id value-seq]]
-          (browser/cancel-timeout id))]
+          (browser/clear-timeout id))]
   (defn sequence
     "Returns a subscription that will yield all values from the
   given (lazy) sequence in `ms` millisecond stepts. The first value
   will be available immediately."
     [value-seq ms]
-    (core/simple-subscription browser/cancel-timeout
+    (core/simple-subscription browser/clear-timeout
                               seq-sub value-seq ms)))
 
 ;; current time? (as a map over infinite sequence?)
 
-(defn animation-frames
-  "Returns a subscription on the animation frames of the browser,
+(def animation-frames
+  "A subscription on the animation frames of the browser,
   which will yield new timestamp values (a DOMHighResTimeStamp, which
   is a double) that can be used to update an animation
   accordingly. The rate is typically 60 times per second but can
   vary."
-  []
   (core/simple-subscription browser/cancel-animation-frames
                             browser/request-animation-frames))

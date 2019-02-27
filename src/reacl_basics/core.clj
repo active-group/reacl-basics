@@ -88,7 +88,7 @@ Note that the macro can also be used without an app-state.
                         :doc (:docstring m)
                         :arglists `([~@(rest (:params m))] ~(:params m)))
          (fn [& args#]
-           (apply attrs-detector f args#))))))
+           (apply attrs-detector f# args#))))))
 
 (alter-meta! #'defn-dom assoc :arglists '([name docstring? [attrs params*] body]))
 
