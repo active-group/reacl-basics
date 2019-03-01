@@ -9,6 +9,9 @@
   IFn
   (-invoke [this state] (apply f state args)))
 
+(defn execute! [a state]
+  (a state))
+
 (defn action
   "Returns an action that contains the function to execute it as by `(f state & args) => (reacl/return ...))`"
   [f & args]
@@ -22,18 +25,17 @@
 (def ^{:doc "An action that does nothing."}
   nothing (action (constantly (reacl/return))))
 
-(letfn [(comp-a [state a1 a2]
+(letfn [(right-state [stl str]
+          (if (= str reacl/keep-state)
+            stl
+            str))
+        (comp-a [state a1 a2]
           (cond
             :else
             (let [r1 (a1 state)
-                  st2 (reacl/right-state state (core/returned-app-state r1))
+                  st2 (right-state state (reacl/returned-app-state r1))
                   r2 (a2 st2)]
-              ;; TODO: add all messages together
-              (-> (reduce #(core/add-returned-action %1 %2)
-                          r2
-                          (core/returned-actions r1))
-                  (core/set-returned-local-state (reacl/right-state (core/returned-local-state r1)
-                                                                    (core/returned-local-state r2)))))))
+              (reacl/concat-returned r1 r2))))
         (comp-a_ [a1 a2]
           (cond
             (= a1 nothing) a2
@@ -77,9 +79,7 @@
                         (reacl/send-message! target msg))]
             (if-let [msg (try (apply f send! args)
                               (finally (reset! allowed true)))]
-              (if false ;; FIXME, when reacl supports message returns.
-                (reacl/return :message [target msg])
-                (goog.async.nextTick (fn [] (send! msg))))
+              (reacl/return :message [target msg])
               (reacl/return))))]
   (defn async-messages
     "Creates an action that sends messages to the component
