@@ -9,7 +9,7 @@
 (let [empty-opt (reacl/opt)]
   (defn ^:no-doc with-opt-detector [f]
     (fn [opt? & args]
-      (if (instance? reacl/Options opt?)
+      (if (reacl/opt? opt?)
         (apply f opt? args)
         (apply f empty-opt args)))))
 

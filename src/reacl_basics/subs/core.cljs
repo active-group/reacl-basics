@@ -9,7 +9,7 @@
   (unsubscribe-action [this id] "Returns an action that will immediately cancel the subscription with the given id."))
 
 (defn subscribable?
-  "Returns true of the given value is a subscribable."
+  "Returns true if the given value is a subscribable."
   [v]
   (satisfies? ISubscribable v))
 
@@ -28,6 +28,19 @@
   local-state [state {:id nil
                       :value nil ;; TODO: allow different defaults than nil?
                       }]
+
+  should-component-update?
+  (fn [next-app-state next-local-state next-sub next-f & next-args]
+    ;; if only the id changed, then don't update:
+    (if (and (= [next-sub next-f next-args]
+                [sub f args])
+             (= (:value state) (:value next-local-state))
+             (not= (:id state) (:id next-local-state)))
+      false
+      true))
+
+  ;; FIXME: did-update ...when different sub, then restart.
+  
   component-did-mount
   (fn []
     (reacl/return :action (subscribe-action sub this id-msg val-msg)))
@@ -45,7 +58,9 @@
   (fn [msg]
     (case (first msg)
       :id (reacl/return :local-state (assoc state :id (second msg)))
-      :value (reacl/return :local-state (assoc state :value (second msg))))))
+      :value (reacl/return :local-state (assoc state :value (second msg)))
+      (do (assert false (str "Unexpected msg: " (pr-str msg)))
+          (reacl/return)))))
 
 (defrecord ^:no-doc Subscribable [make-unsub-action make-sub-action args]
   ISubscribable
@@ -62,7 +77,8 @@
   (Subscribable. make-unsub-action make-sub-action args))
 
 (letfn [(ss-sub [target make-id-message make-value-message make-unsub-action make-sub-action sub-args]
-          (apply make-sub-action target make-id-message make-value-message sub-args))
+          (apply make-sub-action target make-id-message make-value-message
+                 sub-args))
         (ss-unsub [id make-unsub-action make-sub-action sub-args]
           (make-unsub-action id))]
   (defn simple
@@ -70,20 +86,22 @@
   subscribe and unsubscribe actions. Extra arguments are appended only
   to the call to `make-sub-action`."
     [make-unsub-action make-sub-action & sub-args]
-    (subscribable make-unsub-action make-sub-action sub-args)))
+    (assert (ifn? make-unsub-action))
+    (assert (ifn? make-sub-action))
+    (subscribable ss-unsub ss-sub make-unsub-action make-sub-action sub-args)))
 
-(letfn [(p-sub [target make-id-message make-value-message make-main-action]
-          ;; TODO: should this return different, random ids?
+(letfn [(p-sub [target make-id-message make-value-message make-main-action args]
           (actions/comp (actions/message target (make-id-message :id))
-                        (make-main-action target make-value-message)))
+                        (apply make-main-action target make-value-message args)))
         (p-unsub [id]
           actions/nothing)]
   (defn pure
     "Returns a subscribable that does not need side-effectful
-  subscriptions, where `(make-main-action target make-value-message & args)` that does not need to send an
+  subscriptions, where `(make-main-action target make-value-message & args)` does not need to send an
   `id` to target. Note that an id is sent anyway."
     [make-main-action & args]
-    (simple p-unsub p-unsub make-main-action args)))
+    (assert (ifn? make-main-action))
+    (simple p-unsub p-sub make-main-action args)))
 
 (def ^{:doc "A subscribable that never yields a value."}
   void
@@ -93,13 +111,16 @@
 (letfn [(ms-sub [target make-id-message make-value-message sub f args]
           (subscribe-action sub target
                             make-id-message
-                            (fn [value] ;; TODO: bind fn
-                              (apply f value args))))
+                            ;; TODO: bind fn
+                            (fn [value]
+                              (make-value-message (apply f value args)))))
         (ms-unsub [id sub f args]
           (unsubscribe-action sub id))]
   (defn map
     "Returns a subscribable that yields the same values as `sub`, but piped through `(f value & args)`."
     [sub f & args]
+    (assert (subscribable? sub))
+    (assert (ifn? f))
     (subscribable ms-unsub ms-sub sub f args)))
 
 (letfn [(c-mk [target make-value-message value]
@@ -107,49 +128,81 @@
   (defn const
     "Returns a subscribable that yields the given value immediately."
     [value]
-    (pure value)))
+    (pure c-mk value)))
 
-(letfn [(sub-id-msg [id] [::id id])
-        (cc-sub [target make-id-message make-value-message subs]
-          (let [nils (mapv (constantly nil)
-                           subs)]
-            (actions/async-messages target
-                                    (fn [send!]
-                                      (let [ids (atom nils)
-                                            values (atom nils)]
-                                        (doseq [[idx s] (map-indexed vector subs)]
-                                          ;; execute each subscrib-action, 'stealing' id and values out of it.
-                                          (actions/execute! (subscribe-action s nil
-                                                                              (fn [id]
-                                                                                (reset! ids (assoc @ids idx id))
-                                                                                nil)
-                                                                              (fn [value]
-                                                                                (reset! values (assoc @values idx value))
-                                                                                (send! @values)
-                                                                                nil))
-                                                            nil))
-                                        (assert (every? some? @ids) "One concatened subs did not immediately send an id upon subscription.")
-                                        (make-id-message @ids))))))
-        (cc-unsub [ids subs]
+(letfn [(aa-sub [target make-id-message make-value-message subs]
+          (actions/guard
+           (fn []
+             (let [ids (atom (vec (repeat (count subs) nil)))]
+               (apply actions/comp
+                      (actions/message target (make-id-message ids))
+                      (map-indexed (fn [idx sub]
+                                     (subscribe-action sub target
+                                                       (fn [id]
+                                                         (reset! ids (assoc @ids idx id))
+                                                         nil)
+                                                       (fn [value]
+                                                         (make-value-message [idx value]))))
+                                   subs))))))
+        (aa-unsub [ids subs]
           (assert (= (count ids) (count subs)))
-          (apply actions/comp (map #(unsubscribe-action %1 %2)
-                                   subs ids)))]
-  (defn parallel
-    "Returns a subscribable that yields a vector of the values of all the given subs in the same order."
+          (apply actions/comp (cmap (fn [sub id]
+                                      (when (some? id) ;; the sub didn't send an id?
+                                        (unsubscribe-action sub id)))
+                                    subs ids)))]
+  (defn indexed
+    "Returns a subscribable that yields the values of all of the given
+  subs as they come in, as a tuple `[idx value]` with the position of
+  the corresponding sub."
     [& subs]
     (if (empty? subs)
       (const [])
-      (subscribable cc-unsub cc-sub subs))))
+      (subscribable aa-unsub aa-sub subs))))
+
+(letfn [(cc-sub [target make-id-message make-value-message cnt sub]
+          (actions/guard
+           (fn []
+             (let [values (atom (vec (repeat cnt nil)))]
+               (subscribe-action sub target
+                                 make-id-message
+                                 (fn [[idx value]]
+                                   (swap! values assoc idx value)
+                                   (make-value-message @values)))))))
+        (cc-unsub [id sub]
+          (unsubscribe-action sub id))]
+  (defn concurrent
+    "Returns a subscribable that yields a vector of the values of all
+  the given subs in the same order."
+    [& subs]
+    (if (empty? subs)
+      (const [])
+      (subscribable cc-unsub cc-sub (count subs) (apply indexed subs)))))
+
+(letfn [(sq-sub [target make-id-message make-value-message sub]
+          (subscribe-action sub target
+                            make-id-message
+                            (fn [[idx value]]
+                              (make-value-message value))))
+        (sq-unsub [id sub]
+          (unsubscribe-action sub id))]
+  (defn sequential
+    "Returns a subscribable that yields the values of the given
+  subs as they come in."
+    [& subs]
+    (if (empty? subs)
+      (const [])
+      (subscribable sq-unsub sq-sub (apply indexed subs)))))
+
 
 (letfn [(w-sub [target make-id-message make-value-message sub size]
-          (actions/async-messages target
-                                  (fn [send!] ;; TODO: bind fn
-                                    (let [prev (atom (repeat size nil))]
-                                      (actions/execute! (subscribe-action sub target make-id-message
-                                                                          (fn [value] ;; TODO: bind fn
-                                                                            (let [res (conj (vec (rest @prev)) value)]
-                                                                              (reset! prev res)
-                                                                              (make-value-message res)))))))))
+          (actions/guard
+           (fn []
+             (let [prev (atom (repeat size nil))]
+               (subscribe-action sub target make-id-message
+                                 (fn [value] ;; TODO: bind fn
+                                   (let [res (conj (vec (rest @prev)) value)]
+                                     (reset! prev res)
+                                     (make-value-message res))))))))
         (w-unsub [id sub size]
           (unsubscribe-action sub id))]
   (defn sliding-window

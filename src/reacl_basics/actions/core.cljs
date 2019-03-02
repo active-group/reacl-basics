@@ -3,24 +3,33 @@
   them."
   (:require [reacl-basics.core :as core]
             [reacl2.core :as reacl])
-  (:refer-clojure :exclude [comp]))
+  (:refer-clojure :exclude [comp delay map]))
+
+(defprotocol IActionable
+  (execute! [this state] "Execute the effect of the action and must return a 'reacl/return' value."))
 
 (defrecord ^:no-doc Action [f args]
-  IFn
-  (-invoke [this state] (apply f state args)))
-
-(defn execute! [a state]
-  (a state))
+  IActionable
+  (execute! [this state] (apply f state args)))
 
 (defn action
   "Returns an action that contains the function to execute it as by `(f state & args) => (reacl/return ...))`"
   [f & args]
   (Action. f args))
 
+(letfn [(gual [state f args]
+          (execute! (apply f args) state))]
+  (defn guard
+    "Returns an action that, when executed, calls `(f & args)` which
+  must return another action which is then executed immediately
+  instead."
+    [f & args]
+    (action gual f args)))
+
 (defn action?
   "Return true if `v` is an action created by [[action]]."
   [v]
-  (instance? Action v))
+  (satisfies? IActionable v))
 
 (def ^{:doc "An action that does nothing."}
   nothing (action (constantly (reacl/return))))
@@ -30,12 +39,10 @@
             stl
             str))
         (comp-a [state a1 a2]
-          (cond
-            :else
-            (let [r1 (a1 state)
-                  st2 (right-state state (reacl/returned-app-state r1))
-                  r2 (a2 st2)]
-              (reacl/concat-returned r1 r2))))
+          (let [r1 (execute! a1 state)
+                st2 (right-state state (reacl/returned-app-state r1))
+                r2 (execute! a2 st2)]
+            (reacl/concat-returned r1 r2)))
         (comp-a_ [a1 a2]
           (cond
             (= a1 nothing) a2
@@ -50,7 +57,7 @@
 
 (defn ^:no-doc handle-actions [state action]
   (if (action? action)
-    (action state)
+    (execute! action state)
     (reacl/return :action action)))
 
 (defn action-handler
@@ -72,15 +79,12 @@
     (action ext-a f args)))
 
 (letfn [(msg-a [state target f args]
-          (let [allowed (atom false)
-                send! (fn [msg]
-                        (when-not @allowed
-                          (throw (ex-info "Messages must only be emitted asynchronously by the send! function." {:message msg})))
+          (let [send! (fn [msg]
                         (reacl/send-message! target msg))]
-            (if-let [msg (try (apply f send! args)
-                              (finally (reset! allowed true)))]
-              (reacl/return :message [target msg])
-              (reacl/return))))]
+            (let [msg (apply f send! args)]
+              (if (some? msg)
+                (reacl/return :message [target msg])
+                (reacl/return)))))]
   (defn async-messages
     "Creates an action that sends messages to the component
   `target`. One message may be directly returned by `f`, which is
