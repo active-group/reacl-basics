@@ -76,6 +76,7 @@
   applying `f` to `args`, i.e. is has an external effect that does not
   depend or modify an application state."
     [f & args]
+    (assert (ifn? f) f)
     (action ext-a f args)))
 
 (letfn [(msg-a [state target f args]
@@ -92,6 +93,8 @@
   later with an `send!` function that is passed as the first
   argument to `f`."
     [target f & args]
+    ;; TODO (assert (component? target) target)
+    (assert (ifn? f) f)
     (action msg-a target f args)))
 
 (letfn [(cnst [send! message]
@@ -100,4 +103,5 @@
     "Creates an action that sends the given message to the component
   `target`."
     [target message]
+    ;; TODO (assert (component? target) target)
     (async-messages target cnst message)))

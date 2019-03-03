@@ -4,10 +4,11 @@
 
 ;; TODO: is 'browser' the right package? Esp. for the timers?
 
-(defn clear-timeout
-  "Returns an action that will clear the timeout with the given id."
-  [id]
-  (core/external js/window.clearTimeout id))
+(letfn [(cltm [id] (js/window.clearTimeout id))]
+  (defn clear-timeout
+    "Returns an action that will clear the timeout with the given id."
+    [id]
+    (core/external cltm id)))
 
 (letfn [(tmo [send! make-id-message ms message]
           (make-id-message (js/window.setTimeout (fn []
@@ -38,10 +39,12 @@
   (cond->> (timeout target make-id-message ms message)
     prev-id (core/comp (clear-timeout prev-id))))
 
-(defn clear-interval
-  "Returns an action that will clear the interval with the given id."
-  [id]
-  (core/external js/window.clearTimeout id))
+(letfn [(clri [id]
+          (js/window.clearInterval id))]
+  (defn clear-interval
+    "Returns an action that will clear the interval with the given id."
+    [id]
+    (core/external clri id)))
 
 (letfn [(intv [send! make-id-message ms message-fn initial-state]
           (let [state (atom initial-state)]
@@ -70,21 +73,28 @@
   [target make-id-message ms message]
   (interval* target make-id-message ms vector message))
 
-(defn go-back
-  "Returns an action that will instruct the browser to go one step back in its history."
-  []
-  (core/external js/window.history.back)) ;; TODO: need fn.
+(letfn [(gob []
+          js/window.history.back)]
+  (defn go-back
+    "Returns an action that will instruct the browser to go one step back in its history."
+    []
+    (core/external gob)))
 
 ;; TODO: window.open, window.print ?
-(defn reload
-  "Returns an action that will instruct the browser to reload the
-  page, optionally by clearing its caches before that."
-  ([] (reload false))
-  ([clear-cache?]
-   (core/external js/window.location.reload (boolean clear-cache?)))) ;; TODO: need fn
 
-(defn cancel-animation-frame [id]
-  (core/external js/window.cancelAnimationFrame id))
+(letfn [(rlo [b]
+          (js/window.location.reload b))]
+  (defn reload
+    "Returns an action that will instruct the browser to reload the
+  page, optionally by clearing its caches before that."
+    ([] (reload false))
+    ([clear-cache?]
+     (core/external rlo (boolean clear-cache?)))))
+
+(letfn [(caf [id]
+          (js/window.cancelAnimationFrame id))]
+  (defn cancel-animation-frame [id]
+    (core/external caf id)))
 
 (letfn [(raf [send! make-id-message make-message]
           (make-id-message (js/window.requestAnimationFrame (fn [timestamp]

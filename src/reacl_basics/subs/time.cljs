@@ -9,10 +9,13 @@
 (letfn [(delay-sub [target make-id-message make-value-message value ms]
           (browser/timeout target make-id-message ms (make-value-message value)))]
   (defn delay
-    "Returns a subscribable that will yield `value` after a timeout of `ms` milliseconds."
-    [value ms]
-    (core/simple browser/clear-timeout
-                 delay-sub value ms)))
+    "Returns a subscribable that will yield `value` after a timeout of
+  `ms` milliseconds, 0 by default. Note that browsers might use a
+  higher minimum."
+    ([value] (delay value 0))
+    ([value ms]
+     (core/simple browser/clear-timeout
+                  delay-sub value ms))))
 
 (letfn [(step [[make-value-message value-seq]]
           [(make-value-message (first value-seq)) [make-value-message (rest value-seq)]])
