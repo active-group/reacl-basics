@@ -42,7 +42,7 @@
           (let [r1 (execute! a1 state)
                 st2 (right-state state (reacl/returned-app-state r1))
                 r2 (execute! a2 st2)]
-            (reacl/concat-returned r1 r2)))
+            (reacl/merge-returned r1 r2)))
         (comp-a_ [a1 a2]
           (cond
             (= a1 nothing) a2

@@ -7,8 +7,6 @@
             cljs.test)
   (:require-macros [cljs.test :refer (is deftest testing async)]))
 
-
-
 (defn test-subscribe [sub]
   (let [msgs (atom [])
         sub-tester (reacl/class "sub-tester" this [sub at]
@@ -17,8 +15,7 @@
                                          sub
                                          (fn [value]
                                            (swap! at conj value)
-                                           "foo"))))
-        ]
+                                           "foo"))))]
     (test-util/instantiate&mount sub-tester sub msgs)
     msgs))
 

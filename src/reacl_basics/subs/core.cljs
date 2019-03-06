@@ -25,6 +25,7 @@
   subscribe-to this [sub f & args]
 
   local-state [state {:id nil
+                      :subscribed-sub nil
                       :value nil ;; TODO: allow different defaults than nil?
                       }]
 
@@ -38,7 +39,19 @@
       false
       true))
 
-  ;; FIXME: did-update ...when different sub, then restart.
+  component-did-update
+  (fn [_ _ new-sub]
+    (assert (subscribable? new-sub))
+    (if (not= (:subscribed-sub state)
+              new-sub)
+      ;; new sub? reset...
+      (cond-> (reacl/return :local-state {:value nil
+                                          :id nil
+                                          :subscribed-sub nil}
+                            :action (subscribe-action new-sub this id-msg val-msg))
+        (some? (:id state)) (reacl/merge-returned
+                             (reacl/return :action (unsubscribe-action (:subscribed-sub state) (:id state)))))
+      (reacl/return)))
   
   component-did-mount
   (fn []
@@ -56,7 +69,9 @@
   handle-message
   (fn [msg]
     (case (first msg)
-      :id (reacl/return :local-state (assoc state :id (second msg)))
+      :id (reacl/return :local-state (assoc state
+                                            :id (second msg)
+                                            :subscribed-sub sub))
       :value (reacl/return :local-state (assoc state :value (second msg)))
       (do (assert false (str "Unexpected msg: " (pr-str msg)))
           (reacl/return)))))
@@ -98,10 +113,9 @@
                               (reduce (fn [ret [sub id]]
                                         (if (contains? tgt-new sub)
                                           ret
-                                          (reacl/concat-returned
+                                          (reacl/merge-returned
                                            ret
-                                           (reacl/return :action (do (js/console.log "unsub:" sub id)
-                                                                     (unsubscribe-action sub id))
+                                           (reacl/return :action (unsubscribe-action sub id)
                                                          :local-state
                                                          (let [state (if (= (reacl/returned-local-state ret)
                                                                             reacl/keep-state)
@@ -120,7 +134,7 @@
                               (reduce (fn [ret [sub make-value-message]]
                                         (if (contains? (keys tgt-prev) sub)
                                           ret
-                                          (reacl/concat-returned
+                                          (reacl/merge-returned
                                            ret
                                            (reacl/return :action
                                                          (subscribe-action sub this
