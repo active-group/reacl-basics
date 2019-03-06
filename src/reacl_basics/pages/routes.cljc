@@ -11,7 +11,7 @@
      (-parse-uri [this uri] "Return map of params if this uri matches, or *false* otherwise.")))
 
 #?(:cljs
-   (defn href [route & [params]]
+   (defn href [route & params]
      (-unparse-uri route params)))
 
 #?(:cljs
@@ -32,28 +32,34 @@
 #?(:cljs
    (defrecord ^:private Route [c-pattern]
               IRoutable
-              (-unparse-uri [this params]
-                (let [{:keys [source re keys absolute?]} c-pattern]
-                  (let [ks (set keys)
-                        s (reduce (fn [s [k v]]
-                                    (if (contains? ks k)
-                                      (str/replace s (str k) (url/url-encode (str v)))
-                                      s))
+              (-unparse-uri [this args]
+                (let [{:keys [source re keys absolute?]} c-pattern
+                      _ (assert (or (= (count args) (count keys))
+                                    (= (count args) (inc (count keys)))))
+                      positional (map vector
+                                      keys
+                                      (take (count keys) args))
+                      params (if (= (count args) (count keys))
+                               nil
+                               (last args))]
+                  (let [s (reduce (fn [s [k v]]
+                                    (str/replace s (str k) (url/url-encode (str v))))
                                   source
-                                  params)
-                        rest (reduce dissoc params keys)]
-                    (if (empty? rest)
+                                  positional)]
+                    (if (empty? params)
                       s
                       (str s "?" (str/join "&" (map (fn [[k v]]
                                                       (str (url/url-encode (name k)) "=" (url/url-encode (str v))))
-                                                    rest)))))))
+                                                    params)))))))
               (-parse-uri [this uri]
                 (let [furl (url/url uri)
                       b (-> c-pattern
                             ;; in particular, we must remove the query params to use clout:
                             (clout/route-matches {:uri (:path furl)}))]
                   (if b
-                    (merge b (into {} (map (fn [[k v]] [(keyword k) v]) (:query furl))))
+                    (concat (map b (:keys c-pattern))
+                            (some-> (not-empty (into {} (map (fn [[k v]] [(keyword k) v]) (:query furl))))
+                                    (vector))) 
                     false)))))
 
 #?(:clj

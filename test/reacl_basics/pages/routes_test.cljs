@@ -7,7 +7,7 @@
     (is (= (routes/parse rout0 "/test")
            false))
     (is (= (routes/parse rout0 "/base/dir")
-           {}))
+           '()))
     (is (= (routes/href rout0)
            "/base/dir")))
   
@@ -15,13 +15,23 @@
     (is (= (routes/parse rout1 "/test")
            false))
     (is (= (routes/parse rout1 "/base/123")
-           {:id "123"})) ;; ???
+           ["123"]))
     (is (= (routes/parse rout1 "/base/123?a=42")
-           {:id "123" :a "42"}))
+           ["123" {:a "42"}]))
 
-    (is (= (routes/href rout1 {:id "123"})
+    (is (= (routes/href rout1 "123")
            "/base/123"))
-    (is (= (routes/href rout1 {:id "123" :a "42"})
-           "/base/123?a=42"))
-    
-    ))
+    (is (= (routes/href rout1 "123" {:a "42"})
+           "/base/123?a=42")))
+  
+  (let [rout1 (routes/route "/base/:id/:name")]
+    (is (= (routes/parse rout1 "/base/123/def")
+           ["123" "def"]))
+    (is (= (routes/parse rout1 "/base/123/def?a=42")
+           ["123" "def" {:a "42"}]))
+
+    (is (= (routes/href rout1 "123" "def")
+           "/base/123/def"))
+    (is (= (routes/href rout1 "123" "def" {:a "42"})
+           "/base/123/def?a=42")))
+  )
