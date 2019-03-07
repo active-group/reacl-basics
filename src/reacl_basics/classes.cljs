@@ -1,6 +1,7 @@
 (ns reacl-basics.classes
   "Functions and macros that create classes with some typical properties and features."
-  (:require [reacl2.core :as reacl]
+  (:require [reacl2.core :as reacl :include-macros true]
+            [reacl2.dom :as dom]
             [reacl-basics.core :as core]
             [reacl-basics.utils :as u]
             [clojure.spec.alpha :as s]))
@@ -8,7 +9,7 @@
 (s/def ::child any?)
 (s/def ::children (s/* any?)) ;; react elements, strings, etc, single list of elements?
 
-(s/def ::attrs core/attributes?)
+(s/def ::attrs dom/attributes?)
 
 (s/def ::dom-varg (s/cat :attrs (s/? ::attrs)
                          :content ::children))

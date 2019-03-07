@@ -1,10 +1,33 @@
 (ns reacl-basics.core
-  (:require [reacl2.core :as reacl :include-macros true])
+  (:require [reacl2.core :as reacl :include-macros true]
+            [reacl2.dom :as dom]
+            [clojure.string :as string])
   (:refer-clojure :exclude [constantly]))
 
-(defn ^:no-doc attributes? [v] ;; TODO: should be public in reacl.
-  (and (map? v)
-       (not (satisfies? reacl/IHasDom v))))
+(defn join-classes [& cs]
+  (string/join " " (filter not-empty cs)))
+
+(letfn [(merge-a2 [a1 a2]
+          (reduce-kv (fn [res k v]
+                       (case k
+                         ;; Note: if both class and className are used in each, then there is no clear semantics.
+                         (:class :className)
+                         (-> res
+                             (dissoc :class :className)
+                             (assoc :class (join-classes (:class res) (:className res) v)))
+                         ;; Merging styles absolutely correct is very hard (like merging :border and :border-with)
+                         ;; This will only cover simple cases.
+                         :style
+                         (update res :style merge v)
+                         ;; per default, add/overwrite
+                         (assoc res k v)))
+                     a1
+                     a2))]
+  (defn merge-attributes [& attrs]
+    (assert (every? dom/attributes? attrs))
+    (reduce merge-a2
+            {}
+            attrs)))
 
 (let [empty-opt (reacl/opt)]
   (defn ^:no-doc with-opt-detector [f]
@@ -15,7 +38,7 @@
 
 (defn ^:no-doc attrs-detector [f & args]
   (if (and (not-empty args)
-           (attributes? (first args)))
+           (dom/attributes? (first args)))
     (apply f args)
     (apply f {} args)))
 
