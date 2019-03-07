@@ -12,6 +12,8 @@
   ;; put data-trigger on <a> that are not client-links
   (reify History
     (push! [_ path]
+      ;; TODO: if this is called from router/PushUri, then maybe disable listener; push; enable again; then return a :message?
+      
       ;; Note: if all history impls. take path and query separately, when change push! ? (we just created the query-string; not parsing it again)
       (let [u (url/url path)]
         (accountant/navigate! (:path u) (:query u))))

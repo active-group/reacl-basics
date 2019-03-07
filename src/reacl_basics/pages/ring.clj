@@ -3,10 +3,10 @@
 
 (defn wrap-client-fn-routes
   ([handler client-fn]
-   (wrap-client-routes handler @routes/routes client-fn))
+   (wrap-client-fn-routes handler @routes/routes client-fn))
   ([handler routes client-fn]
    (fn [request]
-     (if-let [route (first (filter some? (map (routes/route-matches % request)
+     (if-let [route (first (filter some? (map #(routes/route-matches % request)
                                               routes)))]
        ;; TODO: really call client-fn with route?
        (apply client-fn route (routes/route-matches route request))

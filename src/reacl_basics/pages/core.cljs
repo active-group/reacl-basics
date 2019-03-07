@@ -8,11 +8,11 @@
             [reacl-basics.pages.routes :as routes]
             [reacl-basics.pages.router :as router]))
 
-(defprotocol IPage
+(defprotocol ^:no-doc IPage
   (page-id [this])
   (render-page! [this opt app-state args]))
 
-(defrecord Page [id f f-args]
+(defrecord ^:private Page [id f f-args]
   IPage
   (page-id [this] id)
   (render-page! [_ opt app-state p-args]
