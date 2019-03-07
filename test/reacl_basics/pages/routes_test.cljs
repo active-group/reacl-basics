@@ -4,16 +4,14 @@
 
 (deftest parsing-test
   (let [rout0 (routes/route "/base/dir")]
-    (is (= (routes/parse rout0 "/test")
-           false))
+    (is (not (routes/parse rout0 "/test")))
     (is (= (routes/parse rout0 "/base/dir")
-           '()))
+           []))
     (is (= (routes/href rout0)
            "/base/dir")))
   
   (let [rout1 (routes/route "/base/:id")]
-    (is (= (routes/parse rout1 "/test")
-           false))
+    (is (not (routes/parse rout1 "/test")))
     (is (= (routes/parse rout1 "/base/123")
            ["123"]))
     (is (= (routes/parse rout1 "/base/123?a=42")
@@ -35,3 +33,13 @@
     (is (= (routes/href rout1 "123" "def" {:a "42"})
            "/base/123/def?a=42")))
   )
+
+(deftest defroute-test
+  (routes/clear-routes!)
+  (routes/defroute test-r "/abc/:id")
+  
+  (is (= (count @routes/routes)
+         1))
+  (is (routes/routable? test-r))
+  (is (= (routes/href test-r "123")
+         "/abc/123")))

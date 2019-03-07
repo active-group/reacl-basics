@@ -9,7 +9,11 @@
   :dependencies [[org.clojure/clojure "1.10.0"] ;; TODO: minimal version?
                  [org.clojure/clojurescript "1.10.520"]
                  [active-clojure "0.26.0"]
-                 [reacl "2.1.0-SNAPSHOT"]]
+                 [reacl "2.1.0-SNAPSHOT"]
+                 [cljs-ajax "0.8.0" :scope "provided"]
+                 [clout "2.2.1"]
+                 [com.cemerick/url "0.1.1"]
+                 [venantius/accountant "0.2.4"]]
 
   :plugins [[lein-cljsbuild "1.1.7"]]
 

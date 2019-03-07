@@ -10,16 +10,27 @@
 (defn push [uri]
   (PushUri. uri))
 
-(defrecord ^:private RegisterPager [pager pages goto-msg])
+(defrecord ^:private RegisterPager [pager routes goto-msg])
 
-(defn register-pager [pager pages goto-msg]
-  (RegisterPager. pager pages goto-msg))
+(defrecord ^:private UnregisterPager [pager])
+
+(defn register-pager [pager routes goto-msg]
+  (RegisterPager. pager routes goto-msg))
+
+(defn unregister-pager [pager]
+  (UnregisterPager. pager))
 
 (defrecord ^:private GotoUri [uri])
 
+(defn- history-start! [history state]
+  (let [all-routes (apply concat (map (comp first second) (:pagers state)))]
+    (history/start! history (:listener state)
+                    (fn [path]
+                      (some #(routes/parse % path) all-routes)))))
+
 (reacl/defclass router this [history content]
   local-state [state
-               {:pagers {} ;; pager -> [pages goto-msg] (usually only one)
+               {:pagers {} ;; pager -> [routes goto-msg] (usually only one)
 
                 :listener (fn [uri]
                             (reacl/send-message! this (GotoUri. uri)))
@@ -33,12 +44,19 @@
 
   component-will-mount
   (fn []
-    (history/listen! history (:listener state))
+    (history-start! history state)
+    (reacl/return))
+
+  component-did-update
+  (fn []
+    ;; esp. when the pagers change initially.
+    (history/stop! history)
+    (history-start! history state)
     (reacl/return))
 
   component-will-unmount
   (fn []
-    (history/unlisten! history (:listener state))
+    (history/stop! history)
     (reacl/return))
 
   render
@@ -48,20 +66,26 @@
   handle-message
   (fn [msg]
     (condp instance? msg
-      GotoUri (let [uri (:uri msg)
-                    [pager goto-msg page page-args]
-                    (reduce-kv (fn [res pager [pages goto-msg]]
-                                 (or res
-                                     (if-let [page (first (filter #(not= false (routes/parse % uri))
-                                                                  pages))]
-                                       [pager goto-msg page (routes/parse page uri)]
-                                       nil)))
-                               nil
-                               (:pagers state))]
-                (if page
-                  (reacl/return :message [pager (goto-msg page page-args)])
-                  ;; TODO: error?
-                  (reacl/return)))
+      GotoUri
+      (let [uri (:uri msg)
+            [pager goto-msg page page-args]
+            (reduce-kv (fn [res pager [routes goto-msg]]
+                         (or res
+                             (if-let [page (first (filter #(routes/parse % uri)
+                                                          routes))]
+                               [pager goto-msg page (routes/parse page uri)]
+                               nil)))
+                       nil
+                       (:pagers state))]
+        (if page
+          (reacl/return :message [pager (goto-msg page page-args)])
+          ;; TODO: other kind of error? not-found fallback?
+          (do (js/console.warn "No page found for route:" uri)
+              (reacl/return))))
       
-      RegisterPager (reacl/return :local-state (assoc state :pagers
-                                                      (:pager msg) [(:pages msg) (:goto-msg msg)])))))
+      UnregisterPager
+      (reacl/return :local-state (update-in state [:pagers] dissoc (:pager msg)))
+      
+      RegisterPager
+      (reacl/return :local-state (assoc-in state [:pagers (:pager msg)]
+                                           [(:routes msg) (:goto-msg msg)])))))

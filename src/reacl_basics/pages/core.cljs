@@ -23,15 +23,18 @@
   (Page. id f args))
 
 (defn routable-page? [page]
-  (routes/routable? (:id page)))
+  (routes/routable? (page-id page)))
 
 (defrecord ^:private AppState [value])
 
 (defrecord ^:private GotoPage [id args])
-(defrecord ^:private SetPage [page args])
+(defrecord ^:private SetPage [id args])
 
 (defn goto-page [id & args]
   (GotoPage. id args))
+
+(defn- find-page [pages id]
+  (first (filter #(= id (page-id %)) pages)))
 
 (reacl/defclass pager this app-state [pages & [use-router?]]
   local-state [state {:current {:page (first pages) :args nil}
@@ -43,14 +46,15 @@
   component-will-mount
   (fn []
     (if use-router?
-      (reacl/return :action (router/register-pager this (filter routable-page? pages)
+      (reacl/return :action (router/register-pager this (map page-id (filter routable-page? pages))
                                                    ->SetPage))
       (reacl/return)))
 
   component-will-unmount
   (fn []
-    ;; TODO: unregister, update-pager.
-    (reacl/return))
+    (if use-router?
+      (reacl/return :action (router/unregister-pager this))
+      (reacl/return)))
   
   render
   (let [current (:current state)
@@ -65,17 +69,27 @@
     (condp instance? msg
       AppState (reacl/return :app-state (:value msg))
 
-      SetPage (reacl/return :local-state (assoc state
-                                                :current {:page (:page msg)
-                                                          :args (:args msg)}))
+      SetPage (reacl/return :local-state (let [page (find-page pages (:id msg))] ;; TODO: what if not found?
+                                           (assoc state
+                                                  :current {:page page
+                                                            :args (:args msg)})))
       GotoPage (let [id (:id msg)]
-                 (if-let [page (first (filter #(= id (page-id %)) pages))]
+                 ;; To go to a page, we either push it to the history and wait for its callback (SetPage),
+                 ;; or change our state directly.
+                 (if-let [page (find-page pages id)]
                    (if (and use-router? (routable-page? page))
                      (reacl/return :action (router/push (routes/href page (:args msg))))
                      (reacl/return :local-state (assoc state :current {:page page :args (:args msg)})))
-                   ;; TODO: error?
-                   (reacl/return))))))
+                   ;; TODO: other kind of error?
+                   (do (js/console.warn "Page not found:" id)
+                       (reacl/return)))))))
 
-(core/defc router-with-pager opt app-state [history pages]
+(defn- lens-id
+  ([v] v)
+  ([_ v] v))
+
+(reacl/defclass router-with-pager this app-state [history pages]
+  render
   (router/router history
-                 (pager opt app-state pages true)))
+                 (pager (reacl/opt :embed-app-state lens-id) app-state
+                        pages true)))
