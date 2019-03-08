@@ -35,20 +35,25 @@
 
     (async done
            (let [hist-nav! (atom nil)
+                 current-path (atom "/home")
                  test-history
                  (reify history/History
-                   (push! [this path]
+                   (push! [_ path]
+                     (reset! current-path path)
                      ;; TODO: is html5 history sync or not?
                      (@hist-nav! path))
-                   (start! [this nav-path! path-exists?]
+                   (dispatch-current! [_]
+                     (@hist-nav! @current-path))
+                   (start! [_ nav-path! path-exists?]
                      (reset! hist-nav! nav-path!))
-                   (stop! [this]
+                   (stop! [_]
                      (reset! hist-nav! nil)))
         
                  main (reacl/class "main" this app-state []
                                    render
                                    (actions/action-handler
                                     (core/router-with-pager (reacl/opt :embed-app-state snd) {}
+                                                            {}
                                                             test-history
                                                             pages)))
 

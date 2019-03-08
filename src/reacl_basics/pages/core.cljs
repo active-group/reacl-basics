@@ -36,7 +36,11 @@
 (defn- find-page [pages id]
   (first (filter #(= id (page-id %)) pages)))
 
-(reacl/defclass pager this app-state [pages & [use-router?]]
+;; current = [id args] or href
+
+;; TODO: option to use app-state to store path (if no router is used?)
+;; TODO: initial dispatch (after page load)
+(reacl/defclass pager this app-state [options pages]
   local-state [state {:current {:page (first pages) :args nil}
                       :red-act (fn [_ action]
                                  (condp instance? action
@@ -45,14 +49,14 @@
 
   component-will-mount
   (fn []
-    (if use-router?
+    (if (:use-router? options)
       (reacl/return :action (router/register-pager this (map page-id (filter routable-page? pages))
                                                    ->SetPage))
       (reacl/return)))
 
   component-will-unmount
   (fn []
-    (if use-router?
+    (if (:use-router? options)
       (reacl/return :action (router/unregister-pager this))
       (reacl/return)))
   
@@ -77,7 +81,7 @@
                  ;; To go to a page, we either push it to the history and wait for its callback (SetPage),
                  ;; or change our state directly.
                  (if-let [page (find-page pages id)]
-                   (if (and use-router? (routable-page? page))
+                   (if (and (:use-router? options) (routable-page? page))
                      (reacl/return :action (router/push (routes/href page (:args msg))))
                      (reacl/return :local-state (assoc state :current {:page page :args (:args msg)})))
                    ;; TODO: other kind of error?
@@ -88,8 +92,10 @@
   ([v] v)
   ([_ v] v))
 
-(reacl/defclass router-with-pager this app-state [history pages]
+(reacl/defclass router-with-pager this app-state [options history pages]
   render
   (router/router history
                  (pager (reacl/opt :embed-app-state lens-id) app-state
-                        pages true)))
+                        (-> options
+                            (assoc :use-router? true))
+                        pages)))
