@@ -113,3 +113,11 @@ Note that the macro can also be used without an app-state.
                        args#))))
 
 (alter-meta! #'defc-dom assoc :arglists '([name docstring? opt app-state? [attrs params*] body]))
+
+(defmacro ^:no-doc defn-ca [name pre]
+  ;; defines a simple div container, with some attributes preset.
+  `(defn-dom ~(vary-meta name assoc?
+                         :arglists '([attrs & content] [& content])
+                         :doc (str "Like [[reacl.dom/div]] with a preset attributes " (pr-str pre) ""))
+     [attrs# & content#]
+     (apply reacl2.dom/div (reacl-basics.core/merge-attributes ~pre attrs#) content#)))

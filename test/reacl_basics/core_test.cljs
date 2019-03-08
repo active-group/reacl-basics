@@ -16,6 +16,9 @@
          {:key "b"}))
   (is (= (core/merge-attributes {:key "b"} {:foo "baz"})
          {:key "b" :foo "baz"}))
+  ;; deep merge style
   (is (= (core/merge-attributes {:style {:color "green" :font "Arial"}} {:style {:color "blue"}})
          {:style {:color "blue" :font "Arial"}}))
-  )
+  ;; keep classes order
+  (is (= (core/merge-attributes (array-map :class "a" :className "b") (array-map :className "c" :class "d"))
+         {:class "a b c d"})))

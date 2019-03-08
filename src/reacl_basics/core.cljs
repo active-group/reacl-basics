@@ -10,11 +10,12 @@
 (letfn [(merge-a2 [a1 a2]
           (reduce-kv (fn [res k v]
                        (case k
-                         ;; Note: if both class and className are used in each, then there is no clear semantics.
                          (:class :className)
                          (-> res
                              (dissoc :class :className)
-                             (assoc :class (join-classes (:class res) (:className res) v)))
+                             (assoc :class (join-classes (apply join-classes (map second (filter #(#{:class :className} (first %))
+                                                                                                 res)))
+                                                         v)))
                          ;; Merging styles absolutely correct is very hard (like merging :border and :border-with)
                          ;; This will only cover simple cases.
                          :style
