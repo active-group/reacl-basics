@@ -19,19 +19,19 @@
 
 (defn snd [a b] b)
 
-(deftest router-with-pager-test
+(deftest history-router-test
   (routes/clear-routes!)
 
   (routes/defroute home "/home")
   (routes/defroute person "/person/:id")
 
   (let [home-page (reacl/class "home" this app-state []
-                                                render (dom/div "Homepage"))
-        person-page (reacl/class "person" this app-state [id]
+                               render (dom/div "Homepage"))
+        person-page (reacl/class "person" this app-state [opt id]
                                  render (dom/div "Person: " id))
 
-        pages [(core/page home home-page)
-               (core/page person person-page)]]
+        pages {home home-page
+               person (core/page person-page 'opt)}]
 
     (async done
            (let [hist-nav! (atom nil)
@@ -39,11 +39,9 @@
                  test-history
                  (reify history/History
                    (push! [_ path]
-                     (reset! current-path path)
-                     ;; TODO: is html5 history sync or not?
-                     (@hist-nav! path))
-                   (dispatch-current! [_]
-                     (@hist-nav! @current-path))
+                     (reset! current-path path))
+                   (get-current [_]
+                     @current-path)
                    (start! [_ nav-path! path-exists?]
                      (reset! hist-nav! nav-path!))
                    (stop! [_]
@@ -52,10 +50,9 @@
                  main (reacl/class "main" this app-state []
                                    render
                                    (actions/action-handler
-                                    (core/router-with-pager (reacl/opt :embed-app-state snd) {}
-                                                            {}
-                                                            test-history
-                                                            pages)))
+                                    (core/history-router (reacl/opt :embed-app-state snd) {}
+                                                         test-history
+                                                         pages)))
 
                  c (tu/instantiate&mount main {})]
              (is (= (map dom-content (doms-with-tag c "div"))
@@ -63,7 +60,7 @@
              ;; simulate a user click on an anchor:
              (js/window.setTimeout
               (fn []
-                (history/push! test-history "/person/123")
+                (@hist-nav! "/person/123")
                 (is (= (map dom-content (doms-with-tag c "div"))
                        ["Person: 123"]))
                 (done))
