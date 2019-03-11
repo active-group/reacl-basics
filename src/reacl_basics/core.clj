@@ -114,10 +114,42 @@ Note that the macro can also be used without an app-state.
 
 (alter-meta! #'defc-dom assoc :arglists '([name docstring? opt app-state? [attrs params*] body]))
 
-(defmacro ^:no-doc defn-ca [name pre]
-  ;; defines a simple div container, with some attributes preset.
+(defmacro ^:no-doc defn-attr [name dom-f pre]
+  ;; defines a simple span container, with some attributes preset.
   `(defn-dom ~(vary-meta name assoc?
-                         :arglists '([attrs & content] [& content])
-                         :doc (str "Like [[reacl.dom/div]] with a preset attributes " (pr-str pre) ""))
+                         :arglists '([attrs & content] [& content]))
      [attrs# & content#]
-     (apply reacl2.dom/div (reacl-basics.core/merge-attributes ~pre attrs#) content#)))
+     (apply ~dom-f (reacl-basics.core/merge-attributes ~pre attrs#) content#)))
+
+(defmacro ^:no-doc defn-div [name pre]
+  ;; defines a simple div container, with some attributes preset.
+  `(defn-attr ~(vary-meta name assoc?
+                          :doc (str "Like [[reacl.dom/div]] with preset attributes " (pr-str pre) ""))
+     reacl2.dom/div ~pre))
+
+(defmacro ^:no-doc defn-sa [name pre]
+  ;; defines a simple span or anchor container, with some attributes preset.
+  `(let [sa-f# (fn [at# & cont#]
+                 (apply (if (contains? at# :href)
+                          reacl2.dom/a
+                          reacl2.dom/span)
+                        at# cont#))]
+     (defn-attr ~(vary-meta name assoc?
+                            :doc (str "Like [[reacl.dom/span]], or like [[reacl.dom/a]] if attributes contains :href, and with preset attributes " (pr-str pre) ""))
+       sa-f#
+       ~pre)))
+
+(defmacro ^:no-doc defn-ba [name pre]
+  ;; defines a simple button or anchor container, with some attributes preset.
+  ;; Unifies :disabled true
+  `(let [ba-f# (fn [at# & cont#]
+                 (if (contains? at# :href)
+                   (apply reacl2.dom/a (merge-attributes (cond-> {:role "button"}
+                                                           (:disabled at#) (merge {:class "disabled" :tabindex -1 :aria-disabled "true"}))
+                                                         (dissoc at# :disabled))
+                          cont#)
+                   (apply reacl2.dom/button (merge-attributes {:type "button"} at#) cont#)))]
+     (defn-attr ~(vary-meta name assoc?
+                            :doc (str "Like [[reacl.dom/button]], or like [[reacl.dom/a]] if attributes contains :href, and with preset attributes " (pr-str pre) ""))
+       ba-f#
+       ~pre)))
