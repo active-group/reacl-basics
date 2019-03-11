@@ -64,7 +64,7 @@
     (lens/lens c-l-yank c-l-shove v)))
 
 (reacl/defclass history-router this app-state [history pages]
-  local-state [state {:red-act (fn [_ action]
+  local-state [state {:red-act (fn [_ action history]
                                  (condp instance? action
                                    Goto (do (history/push! history (:uri action))
                                             (reacl/return :message [this action]))
@@ -91,7 +91,7 @@
 
   render
   (router (reacl/opt :embed-app-state lens/id
-                     :reduce-action (:red-act state))
+                     :reduce-action (core/action-reducer (:red-act state) history))
           app-state
           ;; Note: the router is not supposed to change the page - i.e. not use 'show'.
           (lens-const (:current state))

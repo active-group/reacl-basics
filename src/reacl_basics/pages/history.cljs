@@ -10,19 +10,24 @@
 
 (defn html5-history [] ;; TODO :reload-same-path? option?
   ;; Note: put a data-trigger attribute on <a> that are not client-links
-  (reify History
-    (start! [_ nav-path! path-exists?]
-      (accountant/configure-navigation!
-       {:nav-handler nav-path! :path-exists? path-exists?}))
-    (get-current [_]
-      ;; akin to accountang/dispatch-current!
-      (let [path (-> js/window .-location .-pathname)
-            query (-> js/window .-location .-search)
-            hash (-> js/window .-location .-hash)]
-        (str path query hash)))
-    (push! [_ path]
-      ;; FIXME if synchronous, then disable listener; push; enable again; then return a :message?
-      (accountant/navigate! path))
-    (stop! [_]
-      ;; FIXME: commited, but not release by accountant yet: (accountant/unconfigure-navigation!)
-      nil)))
+  (let [auto-nav (atom false)]
+    (reify History
+      (start! [_ nav-path! path-exists?]
+        (accountant/configure-navigation!
+         {:nav-handler (fn [path] (when-not @auto-nav (nav-path! path)))
+          :path-exists? path-exists?}))
+      (get-current [_]
+        ;; akin to accountang/dispatch-current!
+        (let [path (-> js/window .-location .-pathname)
+              query (-> js/window .-location .-search)
+              hash (-> js/window .-location .-hash)]
+          (str path query hash)))
+      (push! [_ path]
+        ;; navigate! triggers the nav-handler (even synchronous), to prevent that, we could unlisten, call it, then listen again.
+        ;; but it should also ok to use an atom for now:
+        (try (reset! auto-nav true)
+             (accountant/navigate! path)
+             (finally (reset! auto-nav false))))
+      (stop! [_]
+        ;; TODO: commited, but not release by accountant yet: (accountant/unconfigure-navigation!)
+        (accountant/configure-navigation! {})))))
