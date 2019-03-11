@@ -37,8 +37,8 @@
 (deftest defroute-test
   (routes/clear-routes!)
   (routes/defroute test-r "/abc/:id")
-  
-  (is (= (count @routes/routes)
+
+  (is (= (count @routes/defined-routes)
          1))
   (is (routes/routable? test-r))
   (is (= (routes/href test-r "123")

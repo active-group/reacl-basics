@@ -3,7 +3,7 @@
 
 (defn wrap-client-fn-routes
   ([handler client-fn]
-   (wrap-client-fn-routes handler @routes/routes client-fn))
+   (wrap-client-fn-routes handler @routes/defined-routes client-fn))
   ([handler routes client-fn]
    (fn [request]
      (if-let [route (first (filter some? (map #(routes/route-matches % request)

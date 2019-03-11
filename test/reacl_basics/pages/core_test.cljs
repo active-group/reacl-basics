@@ -1,5 +1,6 @@
 (ns reacl-basics.pages.core-test
   (:require [reacl-basics.pages.core :as core]
+            [reacl-basics.pages.router :as router]
             [reacl-basics.actions.core :as actions]
             [reacl-basics.pages.routes :as routes :include-macros true]
             [reacl-basics.pages.history :as history]
@@ -50,9 +51,9 @@
                  main (reacl/class "main" this app-state []
                                    render
                                    (actions/action-handler
-                                    (core/history-router (reacl/opt :embed-app-state snd) {}
-                                                         test-history
-                                                         pages)))
+                                    (router/history-router (reacl/opt :embed-app-state snd) {}
+                                                           test-history
+                                                           pages)))
 
                  c (tu/instantiate&mount main {})]
              (is (= (map dom-content (doms-with-tag c "div"))

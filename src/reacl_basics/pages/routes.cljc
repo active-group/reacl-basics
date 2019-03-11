@@ -5,7 +5,8 @@
 
 ;; TODO: prefix configuration?
 
-(def routes (atom #{})) ;; Note: only used for the ring middleware.
+(def ^{:doc "An atom with a set of all routes created by [[defroute]] since the last call to [[clear-routes!]]."}
+  defined-routes (atom #{})) ;; Note: only used for the ring middleware.
 
 #?(:cljs
    (defprotocol ^:private IRoutable
@@ -20,7 +21,7 @@
 
 #?(:cljs
    (defn parse
-     "If the given URI matches the given route, returns a vector of all patch arguments and optionally a map of query params."
+     "If the given URI matches the given route, returns a vector of all path arguments and optionally a map of query params."
      [route uri]
      (-parse-uri route uri)))
 
@@ -32,7 +33,9 @@
    (defn route-matches [route request]
      (-route-matches route request)))
 
-(defn routable? [v]
+(defn routable?
+  "If `v` is a value returned by [[route]] of bound to a name with [[defroute]]."
+  [v]
   (satisfies? IRoutable v))
 
 (defn- parse-request [c-pattern request]
@@ -75,21 +78,46 @@
      IRoutable 
      (-route-matches [_ request] (parse-request c-pattern request))))
 
-#?(:cljs
-   (defn ^:no-doc route [pattern]
-     (Route. (clout/route-compile pattern))))
+(defn ^:no-doc route [pattern]
+  (Route. (clout/route-compile pattern)))
 
-(defn clear-routes! []
-  (reset! routes #{}))
+(defn clear-routes!
+  "Clears the global set of [[defined-routes]]."
+  []
+  (reset! defined-routes #{}))
 
 (defn- clojure? [env]
   (not (contains? env :js-globals)))
 
-(defmacro defroute [name pattern]
+(defmacro defroute
+  "Defines a var with the given `name` to be a route according the given `pattern`, and adds it to the global set of [[defined-routes]].
+
+A pattern can be a fixed path `\"/path/to/page\"`, or can have one or more path arguments `\"/article/:id\"`.
+
+For example:
+
+```clojure
+(defroute r0 \"/home\")
+
+(href r0) => \"/home\"
+(parse r0 \"/home\") => []
+(href r0 {:lang \"de\"}) => \"/home?lang=de\"
+(parse r0 \"/home?lang=de\") => [{:lang \"de\"}]
+
+(defroute r1 \"/path/:id\")
+
+(href r1 \"123\") => \"/path/123\"
+(parse r1 \"/path/123\") => [\"123\"]
+(parse r1 \"/other/path\") => nil
+```
+"
+  [name pattern]
   (let [positional (:keys (clout/route-compile pattern))
         pargs (mapv (fn [_] (gensym "arg")) positional)
         oargs (mapv (comp symbol clojure.core/name) positional)]
-    `(def ~name
+    `(def ~(vary-meta name assoc
+                      :doc (str "Route with the pattern " (pr-str pattern) ".")
+                      :arglists (list oargs (conj oargs `'query-params)))
        (let [r# (route ~pattern)]
-         (swap! routes conj r#)
+         (swap! defined-routes conj r#)
          r#))))

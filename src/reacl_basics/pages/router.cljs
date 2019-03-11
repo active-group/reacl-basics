@@ -14,10 +14,20 @@
 
 (defrecord ^:private Show [id args]) ;; 'parsed'
 
-(defn show [id & args]
+(defn show
+  "Returns an action to be handled by a [[router]] up in the
+  hierarchy, instructing it to show the page registered for the given
+  `id` and additional `args`."
+  [id & args]
   (Show. id args))
 
-(reacl/defclass router this app-state [router-state-lens page-state-lens pages]
+(reacl/defclass ^{:arglists '([router-state-lens page-state-lens pages])
+                  :doc "A class that dispatches rendering based on the
+  given map of id to pages, where a value `[id args]` should be in the
+  app-state under `router-state-lens`, and the pages are instantited
+  over the same part of the app-state under `page-state-lens`."}
+  router this app-state [router-state-lens page-state-lens pages]
+  
   local-state [state {:act-red (fn [_ action]
                                  (condp instance? action
                                    Show (reacl/return :message [this action])
@@ -55,15 +65,26 @@
 
 (defrecord ^:private Goto [uri])
 
-(defn goto [uri]
-  (Goto. uri))
+(defn goto
+  "Returns an action to be handled by a [[history-router]] up in the
+  hierarchy, instructing it to show the page registered for the given
+  `path` (and query string)."
+  [path]
+  (Goto. path))
 
 (letfn [(c-l-yank [_ v] v)
         (c-l-shove [v _ _] v)]
-  (defn lens-const [v]
+  (defn- lens-const [v]
     (lens/lens c-l-yank c-l-shove v)))
 
-(reacl/defclass history-router this app-state [history pages]
+(reacl/defclass ^{:arglists '([history pages])
+                  :doc "A class that dispatches rendering based on the
+  given map of routes to pages, where the current route and route
+  changes are managed by the given implementation of
+  the [[reacl-basics.pages.history/History]] protocol."}
+  history-router
+  this app-state [history pages]
+
   local-state [state {:red-act (fn [_ action history]
                                  (condp instance? action
                                    Goto (do (history/push! history (:uri action))
