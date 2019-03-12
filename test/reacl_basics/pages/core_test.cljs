@@ -4,6 +4,7 @@
             [reacl-basics.actions.core :as actions]
             [reacl-basics.pages.routes :as routes :include-macros true]
             [reacl-basics.pages.history :as history]
+            [active.clojure.lens :as lens]
             [reacl2.core :as reacl :include-macros true]
             [reacl2.dom :as dom]
             [reacl2.test-util.alpha :as tu])
@@ -18,8 +19,6 @@
   [comp]
   (.-textContent comp))
 
-(defn snd [a b] b)
-
 (deftest history-router-test
   (routes/clear-routes!)
 
@@ -33,7 +32,7 @@
 
         pages {home home-page
                person (core/page person-page 'opt)}]
-
+    
     (async done
            (let [hist-nav! (atom nil)
                  current-path (atom "/home")
@@ -51,14 +50,14 @@
                  main (reacl/class "main" this app-state []
                                    render
                                    (actions/action-handler
-                                    (router/history-router (reacl/opt :embed-app-state snd) {}
+                                    (router/history-router (reacl/opt :embed-app-state lens/id) {}
                                                            test-history
                                                            pages)))
 
                  c (tu/instantiate&mount main {})]
              (is (= (map dom-content (doms-with-tag c "div"))
                     ["Homepage"]))
-             ;; simulate a user click on an anchor:
+             ;; emulate a user click on an anchor:
              (js/window.setTimeout
               (fn []
                 (@hist-nav! "/person/123")

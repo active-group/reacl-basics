@@ -1,6 +1,6 @@
 (ns reacl-basics.pages.router
   (:require [reacl2.core :as reacl :include-macros true]
-            [reacl-basics.core :as core]
+            [reacl-basics.core :as core :include-macros true]
             [active.clojure.lens :as lens]
             [reacl-basics.pages.history :as history]
             [reacl-basics.pages.routes :as routes]))
@@ -15,36 +15,37 @@
 (defrecord ^:private Show [id args]) ;; 'parsed'
 
 (defn show
-  "Returns an action to be handled by a [[router]] up in the
-  hierarchy, instructing it to show the page registered for the given
-  `id` and additional `args`."
+  "Returns a message to be to be sent to a [[router]], instructing it
+  to show the page registered for the given `id` and additional
+  `args`."
   [id & args]
   (Show. id args))
+
+(core/defc dispatch-view opt app-state [pages id & args]
+  (apply render-page
+         opt
+         app-state
+         (let [page (get pages id nil)]
+           ;; FIXME: take a 'page not found' placeholder? throw?
+           (when-not page
+             (js/console.warn "Page not found:" id "in" (keys pages)))
+           [page args])))
 
 (reacl/defclass ^{:arglists '([router-state-lens page-state-lens pages])
                   :doc "A class that dispatches rendering based on the
   given map of id to pages, where a value `[id args]` should be in the
   app-state under `router-state-lens`, and the pages are instantited
-  over the same part of the app-state under `page-state-lens`."}
-  router this app-state [router-state-lens page-state-lens pages]
+  over the same part of the app-state under `page-state-lens`. First
+  argument to the page is always this router."}  router this
+  app-state [router-state-lens page-state-lens pages]
   
-  local-state [state {:act-red (fn [_ action]
-                                 (condp instance? action
-                                   Show (reacl/return :message [this action])
-                                   (reacl/return :action action)))}]
-
   render
-  (core/reduce-action (apply render-page
-                             (reacl/opt :reduce-action (:red-act state)
-                                        :embed-app-state page-state-lens)
-                             (page-state-lens app-state)
-                             (let [[id args] (router-state-lens app-state)
-                                   page (get pages id nil)]
-                               ;; FIXME: take a 'page not found' class?
-                               (when-not page
-                                 (js/console.warn "Page not found:" id "in" (keys pages)))
-                               [page args]))
-                      (:act-red state))
+  (apply dispatch-view
+         (reacl/opt :embed-app-state page-state-lens)
+         (page-state-lens app-state)
+         pages
+         (let [[id args] (router-state-lens app-state)]
+           (cons id (cons this args))))
 
   handle-message
   (fn [msg]
@@ -72,16 +73,11 @@
   [path]
   (Goto. path))
 
-(letfn [(c-l-yank [_ v] v)
-        (c-l-shove [v _ _] v)]
-  (defn- lens-const [v]
-    (lens/lens c-l-yank c-l-shove v)))
-
-(reacl/defclass ^{:arglists '([history pages])
-                  :doc "A class that dispatches rendering based on the
+(reacl/defclass ^{:doc "A class that dispatches rendering based on the
   given map of routes to pages, where the current route and route
   changes are managed by the given implementation of
-  the [[reacl-basics.pages.history/History]] protocol."}
+  the [[reacl-basics.pages.history/History]] protocol."
+                  :arglists '([history pages])}
   history-router
   this app-state [history pages]
 
@@ -111,14 +107,13 @@
     (reacl/return))
 
   render
-  (router (reacl/opt :embed-app-state lens/id
-                     :reduce-action (core/action-reducer (:red-act state) history))
-          app-state
-          ;; Note: the router is not supposed to change the page - i.e. not use 'show'.
-          (lens-const (:current state))
-          lens/id
-          pages)
-
+  (apply dispatch-view
+         (reacl/opt :embed-app-state lens/id
+                    :reduce-action (core/action-reducer (:red-act state) history))
+         app-state
+         pages
+         (:current state))
+  
   component-will-unmount
   (fn []
     (history/stop! history))
@@ -128,5 +123,3 @@
     (condp instance? msg
       Goto (reacl/return :local-state (assoc state :current
                                              (get-parsed pages (:uri msg)))))))
-
-
