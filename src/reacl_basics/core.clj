@@ -116,10 +116,11 @@ Note that the macro can also be used without an app-state.
 
 (defmacro ^:no-doc defn-attr [name dom-f pre]
   ;; defines a simple span container, with some attributes preset.
-  `(defn-dom ~(vary-meta name assoc?
-                         :arglists '([attrs & content] [& content]))
-     [attrs# & content#]
-     (apply ~dom-f (reacl-basics.core/merge-attributes ~pre attrs#) content#)))
+  `(let [attr-pre# ~pre]
+     (defn-dom ~(vary-meta name assoc?
+                           :arglists '([attrs & content] [& content]))
+       [attrs# & content#]
+       (apply ~dom-f (reacl-basics.core/merge-attributes attr-pre# attrs#) content#))))
 
 (defmacro ^:no-doc defn-div [name pre]
   ;; defines a simple div container, with some attributes preset.
@@ -142,10 +143,11 @@ Note that the macro can also be used without an app-state.
 (defmacro ^:no-doc defn-ba [name pre]
   ;; defines a simple button or anchor container, with some attributes preset.
   ;; Unifies :disabled true
-  `(let [ba-f# (fn [at# & cont#]
+  `(let [anchor-disabled# {:class "disabled" :tabindex -1 :aria-disabled "true"}
+         ba-f# (fn [at# & cont#]
                  (if (contains? at# :href)
                    (apply reacl2.dom/a (merge-attributes (cond-> {:role "button"}
-                                                           (:disabled at#) (merge {:class "disabled" :tabindex -1 :aria-disabled "true"}))
+                                                           (:disabled at#) (merge anchor-disabled#))
                                                          (dissoc at# :disabled))
                           cont#)
                    (apply reacl2.dom/button (merge-attributes {:type "button"} at#) cont#)))]

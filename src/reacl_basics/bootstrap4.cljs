@@ -1,5 +1,6 @@
 (ns reacl-basics.bootstrap4
-  (:require [reacl2.dom :as dom :include-macros true]
+  (:require [reacl2.dom :as dom]
+            [reacl2.core :as reacl :include-macros true]
             [reacl-basics.core :as c :include-macros true]))
 
 ;; -- Layout --------------------------------------
@@ -223,8 +224,40 @@
 (c/defn-attr dropdown-header-h5 dom/h5 {:class "dropdown-header"})
 (c/defn-attr dropdown-header-h6 dom/h6 {:class "dropdown-header"})
 
-
 ;; -- Forms --------------------------------------
+
+(c/defn-attr form dom/form {})
+(c/defn-attr form-inline form {:class "form-inline"})
+
+(c/defn-div form-group {:class "form-group"})
+(c/defn-div form-group-row {:class "form-group row"})
+(c/defn-div form-row {:class "form-row"})
+
+
+(c/defn-attr input dom/input {:class "form-control"})
+(c/defn-attr select dom/input {:class "form-control"})
+(c/defn-attr textarea dom/input {:class "form-control"})
+
+(c/defn-attr input-file dom/input {:class "form-control-file" :type "file"})
+(c/defn-attr input-range dom/input {:class "form-control-range" :type "range"})
+
+(c/defn-div form-check {:class "form-check"})
+(c/defn-div form-check-inline {:class "form-check-inline"})
+
+(c/defn-attr input-checkbox dom/input {:class "form-check-input" :type "checkbox"})
+(c/defn-attr input-radio dom/input {:class "form-check-input" :type "radio"})
+
+(c/defn-attr label dom/label {})
+(c/defn-attr label-check dom/label {:class "form-check-label"})
+
+(c/defn-attr col-label label {:class "col-form-label"})
+(c/defn-attr col-label-check label-check {:class "col-form-label"})
+(c/defn-attr fieldset dom/fieldset {:class "form-group"})
+(c/defn-attr legend dom/legend {})
+(c/defn-attr col-legend legend {:class "col-form-label"})
+
+;; form-control-plaintext ?
+
 ;; -- Input group --------------------------------------
 ;; -- Jumpotron --------------------------------------
 ;; -- List group --------------------------------------

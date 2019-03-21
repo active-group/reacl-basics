@@ -5,7 +5,8 @@
   (:refer-clojure :exclude [constantly]))
 
 (defn join-classes [& cs]
-  (string/join " " (filter not-empty cs)))
+  (string/join " " (filter not-empty
+                           (mapcat #(string/split % #"\s+") cs))))
 
 (letfn [(merge-a2 [a1 a2]
           (reduce-kv (fn [res k v]
@@ -25,7 +26,7 @@
                      a1
                      a2))]
   (defn merge-attributes [& attrs]
-    (assert (every? dom/attributes? attrs))
+    (assert (every? #(or (nil? %) (dom/attributes? %)) attrs) (vec (remove #(or (nil? %) (dom/attributes? %)) attrs)))
     (reduce merge-a2
             {}
             attrs)))
