@@ -3,18 +3,14 @@
   (:require [reacl2.core :as reacl :include-macros true]
             [reacl2.dom :as dom]
             [reacl-basics.core :as core]
-            [reacl-basics.utils :as u]
-            [clojure.spec.alpha :as s]))
+            [reacl-basics.utils :as u]))
 
-(s/def ::child any?)
-(s/def ::children (s/* any?)) ;; react elements, strings, etc, single list of elements?
-
-(s/def ::attrs dom/attributes?)
-
-(s/def ::dom-varg (s/cat :attrs (s/? ::attrs)
-                         :content ::children))
-
-
+(defn- parse-dom-varg [args]
+  (if (dom/attributes? (first args))
+    {:attrs (first args)
+     :content (rest args)}
+    {:attrs {}
+     :content args}))
 
 (defn- events->messages [target mp]
   (into {}
@@ -36,13 +32,12 @@
   event object, and then cause the created component to return an
   action value as returned by that function, unless it's `nil`."
   [name render & event-actions]
-  (let [parse (u/spec-parser ::dom-varg)
-        event-actions (apply array-map event-actions)]
+  (let [event-actions (apply array-map event-actions)]
     (reacl/class name this [& args]
                  
                  local-state [consts {:event-attrs (events->messages this event-actions)}] ;; -> consts? methods?
                  
-                 render (let [m (parse args)]
+                 render (let [m (parse-dom-varg args)]
                           (apply render (merge (:attrs m) (:event-attrs consts))
                                  (:content m)))
                  
@@ -67,15 +62,14 @@
   created component to return an action value as returned by that
   function, unless it's `nil`."
   [name render value-event value-extractor & event-actions]
-  (let [parse (u/spec-parser ::dom-varg)
-        event-actions (apply array-map event-actions)]
+  (let [event-actions (apply array-map event-actions)]
     (reacl/class name this value [& args]
 
                  ;; TODO: use consts, methods when available.
                  local-state [consts {:event-attrs (events->messages this event-actions)
                                       :value-change-attrs {value-event (fn [e] (reacl/send-message! this (Value. (value-extractor e))))}}]
                  
-                 render (let [m (parse args)]
+                 render (let [m (parse-dom-varg args)]
                           (apply render (merge (:attrs m) (:value-change-attrs consts) (:event-attrs consts))
                                  value
                                  (:content m)))

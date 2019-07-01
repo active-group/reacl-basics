@@ -6,10 +6,10 @@
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   
-  :dependencies [[org.clojure/clojure "1.10.0"] ;; TODO: minimal version?
-                 [org.clojure/clojurescript "1.10.520"]
+  :dependencies [[org.clojure/clojure "1.9.0"]
+                 [org.clojure/clojurescript "1.10.238"]
                  [active-clojure "0.26.0"]
-                 [reacl "2.1.0"]
+                 [reacl "2.1.3-SNAPSHOT"]
                  [cljs-ajax "0.8.0" :scope "provided"]
                  [clout "2.2.1"]
                  [com.cemerick/url "0.1.1"]

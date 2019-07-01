@@ -1,7 +1,6 @@
 (ns reacl-basics.core
   (:require [reacl2.core :as reacl]
-            [reacl-basics.utils :as u]
-            [clojure.spec.alpha :as s]))
+            [reacl-basics.utils :as u]))
 
 (defn- assoc? [m k v & more]
   (cond-> m
@@ -29,15 +28,29 @@
                         ~@body)))
 
 
-(s/def ::defc-args
-  (s/cat :docstring (s/? string?)
-         :opt simple-symbol?
-         :app-state (s/? simple-symbol?)
-         :params vector?
-         :body (s/* any?)))
+(defn- p-first? [pred args & [default]]
+  (if (and (not (empty? args)) (pred (first args)))
+    [(first args) (rest args)]
+    [default args]))
 
-(def ^:no-doc parse-defc-args
-  (u/spec-parser ::defc-args))
+(defn- p-first [pred args msg]
+  (let [r (p-first? pred args ::none)]
+    (if (= r ::none)
+      (throw (ex-info (str "Parse error, expected a " msg ", but got " (pr-str (first args))) {:form (first args)}))
+      r)))
+
+(defn- parse-defc-args [args]
+  (let [[docstring? args] (p-first? string? args)
+        ;; TODO: do we want to change this now with bindings?
+        [opt args] (p-first simple-symbol? args "symbol")
+        [app-state? args] (p-first? simple-symbol? args)
+        [params args] (p-first vector? args "vector")
+        body args]
+    {:docstring docstring?
+     :opt opt
+     :app-state app-state?
+     :params params
+     :body body}))
 
 (defmacro defc
   "Defines a 'light-weight' class, i.e. a function that can be called like a reacl class.
@@ -71,12 +84,13 @@ Note that the macro can also be used without an app-state.
 
 (alter-meta! #'defc assoc :arglists '([name opt app-state? [params*] body]))
 
-(s/def ::defn-dom-args
-  (s/cat :docstring (s/? string?)
-         :params vector?
-         :body (s/* any?)))
-
-(def ^:no-doc parse-defn-dom-args (u/spec-parser ::defn-dom-args))
+(defn- parse-defn-dom-args [args]
+  (let [[docstring? args] (p-first? string? args)
+        [params args] (p-first vector? args "vector")
+        body args]
+    {:docstring docstring?
+     :params params
+     :body body}))
 
 (defmacro defn-dom
   "Like [[clojure.core/defn]] where the first argument will always be an
@@ -97,7 +111,6 @@ Note that the macro can also be used without an app-state.
   attribte map, event if not called with one."
   [name & args]
   (let [m (parse-defc-args args)]
-    (assert (not (s/invalid? m)) m)
     `(defc
        ~(vary-meta name assoc? :arglists `([~@(rest (:params m))] ~(:params m)))
        ~@(when (contains? m :docstring)

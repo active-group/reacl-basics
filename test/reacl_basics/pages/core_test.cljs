@@ -7,6 +7,7 @@
             [active.clojure.lens :as lens]
             [reacl2.core :as reacl :include-macros true]
             [reacl2.dom :as dom]
+            cljs.test
             [reacl2.test-util.alpha :as tu])
   (:require-macros [cljs.test :refer (is deftest testing async)]))
 
