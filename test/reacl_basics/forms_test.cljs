@@ -44,8 +44,14 @@
       (is (= (tu/invoke-callback! (input c) :onchange #js {:target #js {:value "42.9"}})
              (reacl/return :app-state 42.9))))
 
-    (testing "does not react to invalid user input"
+    (testing "does react to invalid user input with a nil value"
       (tu/mount! c 42)
+
+      (is (= (tu/invoke-callback! (input c) :onchange #js {:target #js {:value "foobar"}})
+             (reacl/return :app-state nil))))
+
+    (testing "the user can correct himself in the invalid state"
+      (tu/mount! c nil)
 
       (is (= (tu/invoke-callback! (input c) :onchange #js {:target #js {:value "foobar"}})
              (reacl/return))))

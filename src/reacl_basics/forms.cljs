@@ -129,30 +129,54 @@
       x)))
 
 (defn- unparse-number [v]
-  (str v))
+  (if v (str v) ""))
 
-(reacl/defclass input-number this value [& [attrs]]
+(reacl/defclass ^{:doc "An app-state class that renders as a
+  `dom/input` to allow the user to edit the number corresponding to
+  the app-state. The app-state may become nil, if the text the user
+  currently entered is empty or not parsable as a number."}
+  input-number this value [& [attrs]]
+  
   ;; Note type can also be overriden by 'range' for example.
 
   validate (assert (or (nil? value) (number? value)))
 
-  local-state [state {:text (unparse-number value)
-                      :last-value value}]
+  local-state [state (let [s (unparse-number value)]
+                       {:text s
+                        :last-text s
+                        :last-value value})]
 
   component-did-update
   (fn []
     ;; FIXME: empty (trimmed) string - :required field?
     (if (not= value (:last-value state))
       ;; parent changed value to something unrelated to the user's input - start over
-      (reacl/return :local-state {:text (unparse-number value)
-                                  :last-value value})
-      (let [p (parse-number (:text state))]
-        (if (and (some? p) (not= value p))
-          ;; new, parseable value entered - publish that.
-          (reacl/return :app-state p
-                        :local-state (assoc state :last-value p))
-          ;; otherwise, let the user go on typing.
-          (reacl/return)))))
+      (reacl/return :local-state (let [s (unparse-number value)]
+                                   {:text s
+                                    :last-text s
+                                    :last-value value}))
+      (if (not= (:last-text state) (:text state))
+        (let [p (parse-number (:text state))]
+          (if (= p value)
+            ;; same (but maybe with a leading 0 etc. - or sill not parsable) number entered. Just remember that
+            (reacl/return :local-state (-> state
+                                           (assoc :last-text (:text state))))
+            (if (some? p)
+              ;; new, parseable value entered - publish that.
+              (reacl/return :app-state p
+                            :local-state (-> state
+                                             (assoc :last-value p)
+                                             (assoc :last-text (:text state))))
+              ;; new, non-parsable value entered, publish nil (if not done yet), but keep the text as is
+              (if (nil? value)
+                (reacl/return :local-state (-> state (assoc :last-text (:text state))))
+                (reacl/return :app-state nil :local-state (-> state
+                                                              (assoc :last-value nil)
+                                                              (assoc :last-text (:text state))))))))
+        ;; nothing changed:
+        (reacl/return))))
+
+  ;; TODO: maybe the parent should have the option to force an update of the text? A special message? To be used in onblur for example.
   
   render
   (input-text #_(reacl/bind-locally this :text)
@@ -190,6 +214,7 @@
                         (when handler
                           ;; TODO: make it = with active-clojure/functions ?
                           (fn [ev]
+                            ;; TODO: preventDefault might be (usually?) needed?
                             (handler))))]
     (apply adom/form (-> attrs
                          (update-attr :onSubmit const-handler)
