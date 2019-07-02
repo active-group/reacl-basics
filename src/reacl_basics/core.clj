@@ -20,12 +20,12 @@
      (do ~@body)))
 
 (defmacro ^:no-doc app-state-defc [opt app-state params body]
-  `(with-opt-detector (fn [~opt ~app-state ~@params]
-                        ~@body)))
+  `(with-opt-detector true (fn [~opt ~app-state ~@params]
+                             ~@body)))
 
 (defmacro ^:no-doc no-app-state-defc [opt params body]
-  `(with-opt-detector (fn [~opt ~@params]
-                        ~@body)))
+  `(with-opt-detector false (fn [~opt ~@params]
+                              ~@body)))
 
 
 (defn- p-first? [pred args & [default]]

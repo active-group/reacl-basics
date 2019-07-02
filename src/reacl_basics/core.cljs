@@ -31,12 +31,12 @@
             {}
             attrs)))
 
-(let [empty-opt (reacl/opt)]
-  (defn ^:no-doc with-opt-detector [f]
-    (fn [opt? & args]
-      (if (reacl/opt? opt?)
-        (apply f opt? args)
-        (apply f empty-opt args)))))
+(defn ^:no-doc with-opt-detector [has-app-state? f]
+  (fn [& args]
+    (let [[opts app-state args] (reacl/extract-opt+app-state has-app-state? args)]
+      (if has-app-state?
+        (apply f opts app-state args)
+        (apply f opts args)))))
 
 (defn ^:no-doc attrs-detector [f & args]
   (if (and (not-empty args)
