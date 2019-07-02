@@ -28,7 +28,7 @@
 
 (defn update-attr [m caml-cased-key f & args]
   ;; often caml-cased and lowercased are both possible :-/
-  (let [l-key (symbol (str/lower-case (name caml-cased-key)))
+  (let [l-key (keyword (str/lower-case (name caml-cased-key)))
         prev (or (l-key m) (caml-cased-key m))]
     (-> m
         (dissoc caml-cased-key)
@@ -123,6 +123,7 @@
 ;; but then also make 'real' number inputs?
 
 (defn- parse-number [s]
+  ;; Note: "" parses as NaN too
   (let [x (.parseFloat js/Number s)]
     (if (js/isNaN x)
       nil
@@ -139,6 +140,15 @@
   
   ;; Note type can also be overriden by 'range' for example.
 
+  ;; Note: an input element of type "number" behaves like this (in Chrome)
+  ;; - the user cannot enter text that cannot be a number (like 'foobar')
+  ;; - the user can enter text that might become a number (like 'e')
+  ;; - if the current text cannot be parsed as a number, the 'value' is ""
+  ;; - as long as it remains unparsable, no input/change event is triggered.
+  ;; - if the current text can be parsed as a number, the 'value' is that text (like "021")
+  ;; React does not change that.
+  ;; This means, that out 'parse-number' will usually never see an invalid number representation (when :type is number)
+
   validate (assert (or (nil? value) (number? value)))
 
   local-state [state (let [s (unparse-number value)]
@@ -148,7 +158,6 @@
 
   component-did-update
   (fn []
-    ;; FIXME: empty (trimmed) string - :required field?
     (if (not= value (:last-value state))
       ;; parent changed value to something unrelated to the user's input - start over
       (reacl/return :local-state (let [s (unparse-number value)]
@@ -177,12 +186,12 @@
         (reacl/return))))
 
   ;; TODO: maybe the parent should have the option to force an update of the text? A special message? To be used in onblur for example.
+  ;; or off a version with :text in app-state for that?!
   
   render
   (input-text #_(reacl/bind-locally this :text)
               (reacl/opt :reaction (reacl/pass-through-reaction this))
               (:text state)
-              ;; FIXME: how does customValidation interact with :type number? Maybe we should remove :validity if we are displaying an intermediate input?
               (-> (or attrs {})
                   (update-attr :type #(or % "number"))))
 
