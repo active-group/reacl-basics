@@ -46,11 +46,11 @@
         [app-state? args] (p-first? simple-symbol? args)
         [params args] (p-first vector? args "vector")
         body args]
-    {:docstring docstring?
-     :opt opt
-     :app-state app-state?
-     :params params
-     :body body}))
+    (cond-> {:opt opt
+             :params params
+             :body body}
+      docstring? (assoc :docstring docstring?)
+      app-state? (assoc :app-state app-state?))))
 
 (defmacro defc
   "Defines a 'light-weight' class, i.e. a function that can be called like a reacl class.
@@ -88,9 +88,9 @@ Note that the macro can also be used without an app-state.
   (let [[docstring? args] (p-first? string? args)
         [params args] (p-first vector? args "vector")
         body args]
-    {:docstring docstring?
-     :params params
-     :body body}))
+    (cond-> {:params params
+             :body body}
+      docstring? (assoc :docstring docstring?))))
 
 (defmacro defn-dom
   "Like [[clojure.core/defn]] where the first argument will always be an
@@ -119,11 +119,11 @@ Note that the macro can also be used without an app-state.
        ~@(when (contains? m :app-state)
            [(:app-state m)])
        [& args#]
-       (attrs-detector (fn [attrs# & rest#]
-                         (apply (fn ~(:params m)
-                                  ~@(:body m))
-                                attrs# rest#))
-                       args#))))
+       (apply attrs-detector (fn [attrs# & rest#]
+                               (apply (fn ~(:params m)
+                                        ~@(:body m))
+                                      attrs# rest#))
+              args#))))
 
 (alter-meta! #'defc-dom assoc :arglists '([name docstring? opt app-state? [attrs params*] body]))
 
