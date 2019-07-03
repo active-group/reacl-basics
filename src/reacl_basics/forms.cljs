@@ -139,23 +139,17 @@
                                     :last-text s
                                     :last-value value}))
       (if (not= (:last-text state) (:text state))
+        ;; user changed text, to...
         (let [p (parse (:text state))]
           (if (= p value)
-            ;; same parsed value, but text changed - just remember that
+            ;; same parsed value, - just remember the text
             (reacl/return :local-state (-> state
                                            (assoc :last-text (:text state))))
-            (if (some? p)
-              ;; new, parseable value entered - publish that.
-              (reacl/return :app-state p
-                            :local-state (-> state
-                                             (assoc :last-value p)
-                                             (assoc :last-text (:text state))))
-              ;; new, non-parsable value entered, publish nil (if not done yet), but keep the text as is
-              (if (nil? value)
-                (reacl/return :local-state (-> state (assoc :last-text (:text state))))
-                (reacl/return :app-state nil :local-state (-> state
-                                                              (assoc :last-value nil)
-                                                              (assoc :last-text (:text state))))))))
+            ;; new, parseable value entered - publish that and remember text.
+            (reacl/return :app-state p
+                          :local-state (-> state
+                                           (assoc :last-value p)
+                                           (assoc :last-text (:text state))))))
         ;; nothing changed:
         (reacl/return))))
 
