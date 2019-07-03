@@ -121,6 +121,8 @@
 ;; file input is tricky.
 ;; but then also make 'real' number inputs?
 
+(defrecord ^:private Cleanup [])
+
 (reacl/defclass ^:private input-parsed this value [parse unparse restrict & [attrs]]
   ;; Note parse/unparse must not change during livecycle.
   local-state [state (let [s (unparse value)]
@@ -162,13 +164,20 @@
   
   render
   (input-text #_(reacl/bind-locally this :text)
-              (reacl/opt :reaction (reacl/pass-through-reaction this))
+              (reacl/opt :reaction (reacl/reaction this ->Change))
               (:text state)
-              (or attrs {}))
+              (cond-> (or attrs {})
+                (:cleanup-on-blur? attrs) (update-attr :onBlur (fn [prev]
+                                                                 (fn [ev]
+                                                                   (reacl/send-message! this (->Cleanup))
+                                                                   (when prev (prev ev))
+                                                                   nil)))))
 
   handle-message
-  (fn [new-text]
-    (reacl/return :local-state (assoc state :text (restrict new-text)))))
+  (fn [msg]
+    (condp instance? msg
+      Change (reacl/return :local-state (assoc state :text (restrict (:text state) (:value msg))))
+      Cleanup (reacl/return :local-state (assoc state :text (unparse value))))))
 
 (defn- parse-number [s]
   ;; Note: "" parses as NaN too
@@ -179,6 +188,9 @@
 
 (defn- unparse-number [v]
   (if v (str v) ""))
+
+(defn- unrestricted [old new]
+  new)
 
 (reacl/defclass ^{:doc "An app-state class that renders as a
   `dom/input` to allow the user to edit the number corresponding to
@@ -204,7 +216,7 @@
                 value
                 parse-number
                 unparse-number
-                identity
+                unrestricted
                 (-> (or attrs {})
                     (update-attr :type #(or % "number")))))
 
