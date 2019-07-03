@@ -252,11 +252,158 @@
 
 (c/defn-attr col-label label {:class "col-form-label"})
 (c/defn-attr col-label-check label-check {:class "col-form-label"})
+
+;; TODO: rename form-group-wollmilchsau ? 
+#_(c/defn-dom labeled [attrs label elem & more]
+  ;; Note: https://github.com/active-group/reacl/issues/10
+  ;; Note: takes a 'full' dom/label element instead of a string, because for horizontal forms you need more classes.
+  ;; Note: elem maybe something more complicated - a div for horiz., a col-group etc.
+  (let [props (aget elem "props")
+        check? (#{"radio" "checkbox"} (aget props "type"))
+        inline? (:inline? attrs)
+        attrs (dissoc attrs :inline?)]
+    (assert (and props type) (str "Expected a React DOM element, with `props` and `type` properties, but got: " elem "."))
+    (let [id (aget props "id") ;; should be set, but may not.
+
+          label (let [props (aget label "props")
+                      html-for (aget props "htmlFor")
+                      ;; if we don't know the id from the elem, then pretend the label has 'htmlFor' too.
+                      has-for? (if id (some? html-for) true)
+                      classes (or (aget props "className") "")
+                      add-ch-cl? (and check? (= -1 (.indexOf classes "form-check-label")))]
+                  (if (and has-for? (not add-ch-cl?))
+                    label
+                    (js/React.cloneElement label #js {:htmlFor (or html-for id)
+                                                      :className (cond-> classes
+                                                                   ;; TODO: custom-control-label? or maybe a whole custom-labeled?
+                                                                   check?  (c/join-classes "form-check-label"))})))
+
+          elem (js/React.cloneElement elem #js {:onInvalid (fn [ev]
+                                                             (js/console.log "Element became invalid?"  (.-validationMessage (.-target ev))))})
+          more (if-let [vmsg (.-validationMessage elem)]
+                 ;; TODO: does not update at runtime of course :-/
+                 (cons (dom/div {:class "invalid-feedback"} vmsg)
+                       more)
+                 more)
+          ]
+
+      (if check?
+        (apply (if inline? form-check-inline form-check) attrs elem label more)
+        (apply form-group attrs label elem more)))))
+
 (c/defn-attr fieldset dom/fieldset {:class "form-group"})
 (c/defn-attr legend dom/legend {})
 (c/defn-attr col-legend legend {:class "col-form-label"})
 
 ;; form-control-plaintext ?
+
+;; form validation:
+
+;; (set classes needs-validation on form),
+;; set novalidate=true attribute to override the browser's check of 'required=true' fields.
+
+;; set classes is-invalid or is-valid on controls to mark them directly.
+;; set classes invalid (valid) on controls to mark them only after was-validated is set on form.
+
+;; To set constraints on controls (https://www.w3.org/TR/html5/sec-forms.html#constraints-definitions)
+;; - required=true attribute on any
+;; - min, max, step attributes on value controls
+;; - maxlength, minlength on textarea
+;; - pattern attribute on value controls
+;; - email, url types etc.?
+
+;; https://www.w3schools.com/js/js_validation_api.asp / setCustomValidity?
+;; TODO: call setCustomValidity on inputs to mark them as invalid.
+
+;; TODO: rethink this with respect to reacl-basics/forms
+
+#_(reacl/defclass ^:private form-with-validation-class this [type attrs & content]
+  local-state [was-validated? false]
+
+  render (apply type (-> attrs
+                         (->> (c/merge-attributes (when was-validated? {:class "was-validated"})
+                                                  {:noValidate true}))
+                         (assoc :onsubmit (let [prev (or (:onsubmit attrs) (:onSubmit attrs))]
+                                            (fn [ev]
+                                              (let [form (.-target ev)]
+                                                (if-not (.checkValidity form)
+                                                  (do (.preventDefault ev)
+                                                      (.stopPropagation ev)
+                                                      (reacl/send-message! this [:was-validated? true]))
+                                                  (when prev (prev ev))))))
+                                :onChange (fn [ev]
+                                            ;; TODO: add a full form :validation for dependant fields?
+                                            (js/console.log "Form changed?"))
+                                :onReset (let [prev (or (:onreset attrs) (:onReset attrs))]
+                                           (fn [ev]
+                                             (reacl/send-message! this [:was-validated? false])
+                                             (when prev (prev ev))))))
+                content)
+  handle-message
+  (fn [[_ was-validated?]]
+    (reacl/return :local-state was-validated?)))
+
+#_(reacl/defclass input-with-validation this [attrs & content]
+  ;; TODO: onmount needed? if rerendered? does is have an effect before :was-validated is set on form?
+  ;; TODO: does not need to be a class if it stays like this
+  ;; TODO: interference with an app-state form model?
+  local-state [state {:change-handler (fn [ev] ;; a method.
+                                        (reacl/send-message! this [(.-target ev) ev]))}]
+
+  should-component-update?
+  (fn [_ next-state next-type next-attrs & next-content]
+    ;; ignore :validate fn - it's only used in handle-message
+    (not= [state type (dissoc attrs :validate) next-content]
+          [next-state next-type (dissoc next-attrs :validate) next-content]))
+
+  handle-message
+  (fn [[input opt-ev]]
+    (let [text (.-value input)]
+      (.setCustomValidity input (or ((:validate attrs) text) "")))
+    (when-let [prev (and opt-ev
+                         (or (:onchange attrs) (:onChange attrs)))]
+      (prev opt-ev))
+    (reacl/return))
+
+  refs [input-ref]
+
+  component-did-mount
+  (fn []
+    (reacl/return :message [this [(reacl/get-dom input-ref) nil]]))
+  
+  render
+  (apply input(-> attrs
+                  (assoc :ref input-ref)
+                  (dissoc :onChange :validate)
+                  (assoc :onchange (:change-handler state)))
+         content))
+
+#_(c/defn-dom input-with-validation [attrs & content]
+  ;; TODO: use onCheck for checkbox/radio
+  ;; Note: cannot have an onMount validity check
+  (input (c/merge-attributes {:onChange (fn [ev]
+                                          (let [input (.-target ev)
+                                                text (.-value input)]
+                                            (.setCustomValidity input (or ((:validate attrs) text) ""))
+                                            (when-let [prev (or (:onchange attrs) (:onChange attrs))]
+                                              (prev ev))))}
+                             (dissoc attrs :validate :onChange :onchange))))
+
+#_(c/defn-dom form-inline-with-validation [attrs & content]
+  (apply form-with-validation-class form-inline attrs content))
+
+#_(c/defn-dom form-with-validation [attrs & content]
+  (apply form-with-validation-class form attrs content))
+
+
+(c/defn-div invalid-feedback {:class "invalid-feedback"})
+(c/defn-div valid-feedback {:class "valid-feedback"})
+
+(c/defn-div invalid-tooltip {:class "invalid-tooltip"})
+(c/defn-div valid-tooltip {:class "valid-tooltip"})
+
+;; TODO: custom forms and form controls?
+
 
 ;; -- Input group --------------------------------------
 ;; -- Jumpotron --------------------------------------
