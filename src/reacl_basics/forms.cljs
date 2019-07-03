@@ -122,6 +122,55 @@
 ;; file input is tricky.
 ;; but then also make 'real' number inputs?
 
+(reacl/defclass ^:private input-parsed this value [parse unparse restrict & [attrs]]
+  ;; Note parse/unparse must not change during livecycle.
+  local-state [state (let [s (unparse value)]
+                       {:text s
+                        :last-text s
+                        :last-value value})]
+
+  component-did-update
+  (fn []
+    (if (not= value (:last-value state))
+      ;; parent changed value to something unrelated to the user's input - start over
+      (reacl/return :local-state (let [s (unparse value)]
+                                   {:text s
+                                    :last-text s
+                                    :last-value value}))
+      (if (not= (:last-text state) (:text state))
+        (let [p (parse (:text state))]
+          (if (= p value)
+            ;; same parsed value, but text changed - just remember that
+            (reacl/return :local-state (-> state
+                                           (assoc :last-text (:text state))))
+            (if (some? p)
+              ;; new, parseable value entered - publish that.
+              (reacl/return :app-state p
+                            :local-state (-> state
+                                             (assoc :last-value p)
+                                             (assoc :last-text (:text state))))
+              ;; new, non-parsable value entered, publish nil (if not done yet), but keep the text as is
+              (if (nil? value)
+                (reacl/return :local-state (-> state (assoc :last-text (:text state))))
+                (reacl/return :app-state nil :local-state (-> state
+                                                              (assoc :last-value nil)
+                                                              (assoc :last-text (:text state))))))))
+        ;; nothing changed:
+        (reacl/return))))
+
+  ;; TODO: maybe the parent should have the option to force an update of the text? A special message? To be used in onblur for example.
+  ;; or off a version with :text in app-state for that?!
+  
+  render
+  (input-text #_(reacl/bind-locally this :text)
+              (reacl/opt :reaction (reacl/pass-through-reaction this))
+              (:text state)
+              (or attrs {}))
+
+  handle-message
+  (fn [new-text]
+    (reacl/return :local-state (assoc state :text (restrict new-text)))))
+
 (defn- parse-number [s]
   ;; Note: "" parses as NaN too
   (let [x (.parseFloat js/Number s)]
@@ -147,57 +196,48 @@
   ;; - as long as it remains unparsable, no input/change event is triggered.
   ;; - if the current text can be parsed as a number, the 'value' is that text (like "021")
   ;; React does not change that.
-  ;; This means, that out 'parse-number' will usually never see an invalid number representation (when :type is number)
+  ;; This means, that our 'parse-number' will usually never see an invalid number representation (when :type is number)
 
   validate (assert (or (nil? value) (number? value)))
 
-  local-state [state (let [s (unparse-number value)]
-                       {:text s
-                        :last-text s
-                        :last-value value})]
+  render
+  (input-parsed (reacl/opt :embed-app-state (fn [_ s] s))
+                value
+                parse-number
+                unparse-number
+                identity
+                (-> (or attrs {})
+                    (update-attr :type #(or % "number")))))
 
-  component-did-update
-  (fn []
-    (if (not= value (:last-value state))
-      ;; parent changed value to something unrelated to the user's input - start over
-      (reacl/return :local-state (let [s (unparse-number value)]
-                                   {:text s
-                                    :last-text s
-                                    :last-value value}))
-      (if (not= (:last-text state) (:text state))
-        (let [p (parse-number (:text state))]
-          (if (= p value)
-            ;; same (but maybe with a leading 0 etc. - or sill not parsable) number entered. Just remember that
-            (reacl/return :local-state (-> state
-                                           (assoc :last-text (:text state))))
-            (if (some? p)
-              ;; new, parseable value entered - publish that.
-              (reacl/return :app-state p
-                            :local-state (-> state
-                                             (assoc :last-value p)
-                                             (assoc :last-text (:text state))))
-              ;; new, non-parsable value entered, publish nil (if not done yet), but keep the text as is
-              (if (nil? value)
-                (reacl/return :local-state (-> state (assoc :last-text (:text state))))
-                (reacl/return :app-state nil :local-state (-> state
-                                                              (assoc :last-value nil)
-                                                              (assoc :last-text (:text state))))))))
-        ;; nothing changed:
-        (reacl/return))))
+#_(defn- parse-int [s]
+  ;; Note: "" parses as NaN too
+  (let [x (.parseInt js/Number s)]
+    (if (js/isNaN x)
+      nil
+      x)))
 
-  ;; TODO: maybe the parent should have the option to force an update of the text? A special message? To be used in onblur for example.
-  ;; or off a version with :text in app-state for that?!
+#_(defn- unparse-int [v]
+  (if v (str v) ""))
+
+#_(defn restrict-int-str [s]
+  (if-let [v (parse-int s)]
+    (unparse-int v)
+    s))
+
+#_(reacl/defclass input-int this value [& [attrs]]
+  validate (assert (or (nil? value) (integer? value)))
   
   render
-  (input-text #_(reacl/bind-locally this :text)
-              (reacl/opt :reaction (reacl/pass-through-reaction this))
-              (:text state)
-              (-> (or attrs {})
-                  (update-attr :type #(or % "number"))))
-
-  handle-message
-  (fn [new-text]
-    (reacl/return :local-state (assoc state :text new-text))))
+  (input-parsed (reacl/opt :embed-app-state (fn [_ s] s))
+                value
+                parse-int
+                unparse-int
+                restrict-int-str
+                (-> (or attrs {})
+                    (update-attr :pattern #(or % #"\d*"))
+                    #_(update-attr :pattern #(or % #"[0-9]*"))
+                    #_(update-attr :step #(or % 1))
+                    (update-attr :type #(or % "text")))))
 
 (c/defc-dom input-checkbox
   "An app-state class with an optional `attrs` argument, which renders
@@ -216,19 +256,11 @@
 (c/defn-dom form
   "A non-app-state class with an optional `attrs` and arbitrary
    `content` arguments which renders as a `dom/form` element. The
-   events `:onsubmit` and `:onreset` must be assigned to zero
-   arguments functions returning a `reacl/return` value."
+   events `:onsubmit` and `:onreset` must be assigned functions taking
+   an event and returning a `reacl/return` value."
   [attrs & content]
-  (let [const-handler (fn [handler]
-                        (when handler
-                          ;; TODO: make it = with active-clojure/functions ?
-                          (fn [ev]
-                            ;; TODO: preventDefault might be (usually?) needed?
-                            (handler))))]
-    (apply adom/form (-> attrs
-                         (update-attr :onSubmit const-handler)
-                         (update-attr :onReset const-handler))
-           content)))
+  ;; Note: often, one will have to set preventDefault in onSubmit.
+  (apply adom/form attrs content))
 
 (c/defn-dom button-submit
   "Returns a `dom/button` element with optional `attrs` and `content`, and `:type` \"submit\"."
