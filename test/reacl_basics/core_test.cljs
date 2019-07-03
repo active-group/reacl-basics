@@ -3,7 +3,7 @@
             [reacl2.core :as reacl :include-macros true]
             [reacl2.dom :as dom]
             cljs.test
-            [reacl2.test-util.alpha :as tu])
+            [reacl2.test-util.beta :as tu])
   (:require-macros [cljs.test :refer (is deftest testing async)]))
 
 (deftest join-classes-test
@@ -26,33 +26,33 @@
 
 (deftest defc-test
   (core/defc my-x opt state [arg1]
-    (assert (= state ::state))
-    (assert (= arg1 ::arg1))
+    (is (= state ::state))
+    (is (= arg1 ::arg1))
     (dom/div))
-  (my-x ::state ::arg1))
+  (tu/mount my-x ::state ::arg1))
 
 (deftest defc-dom-test
   ;; with app-state
   (core/defc-dom my-dom-x opt state [attrs arg1]
-    (assert (= state ::state))
-    (assert (dom/attributes? attrs))
-    (assert (= arg1 ::arg1))
+    (is (= state ::state))
+    (is (dom/attributes? attrs))
+    (is (= arg1 ::arg1))
     (dom/div))
-  (my-dom-x ::state ::arg1)
-  (my-dom-x ::state {} ::arg1)
+  (tu/mount my-dom-x ::state ::arg1)
+  (tu/mount my-dom-x ::state {} ::arg1)
 
   ;; and without app-state
   (core/defc-dom my-dom-x-2 opt [attrs arg1]
-    (assert (dom/attributes? attrs))
-    (assert (= arg1 ::arg1))
+    (is (dom/attributes? attrs))
+    (is (= arg1 ::arg1))
     (dom/div))
-  (my-dom-x-2 ::arg1)
-  (my-dom-x-2 {} ::arg1))
+  (tu/mount my-dom-x-2 ::arg1)
+  (tu/mount my-dom-x-2 {} ::arg1))
 
 (deftest defn-dom-test
   (core/defn-dom dom-x [attrs arg1]
-    (assert (dom/attributes? attrs))
-    (assert (= arg1 ::arg1))
+    (is (dom/attributes? attrs))
+    (is (= arg1 ::arg1))
     (dom/div))
   (dom-x ::arg1)
   (dom-x {} ::arg1))
