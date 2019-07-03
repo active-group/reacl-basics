@@ -1,7 +1,6 @@
 (ns reacl-basics.forms
-  "Redefines some dom elements as classes that offer app-states
-  for the content usually editable by a user in forms, and/or actions for the
-  most common discrete user interactions."
+  "Functions and classes to build user input forms based on app-states
+  and declarative client side validation."
   (:require [reacl2.dom :as dom]
             [reacl2.core :as reacl :include-macros true]
             [reacl-basics.adom :as adom]
@@ -26,7 +25,7 @@
 ;; - checkValidity    (reportValidity)
 ;; - Events: onInvalid
 
-(defn update-attr [m caml-cased-key f & args]
+(defn- update-attr [m caml-cased-key f & args]
   ;; often caml-cased and lowercased are both possible :-/
   (let [l-key (keyword (str/lower-case (name caml-cased-key)))
         prev (or (l-key m) (caml-cased-key m))]
@@ -84,7 +83,7 @@
 (defn- get-value [elem]
   (.-value elem))
 
-(defn set-value [attrs value]
+(defn- set-value [attrs value]
   (assoc attrs :value value))
 
 (c/defc ^:private form-value-element opt app-state [f attrs & content]
@@ -93,7 +92,7 @@
 (defn- get-checked [elem]
   (.-checked elem))
 
-(defn set-checked [attrs value]
+(defn- set-checked [attrs value]
   (assoc attrs :checked value))
 
 (c/defc ^:private form-checked-element opt app-state [f attrs & content]
