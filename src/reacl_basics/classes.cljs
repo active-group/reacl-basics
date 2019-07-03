@@ -24,7 +24,7 @@
     (reacl/return :action msg)
     (reacl/return)))
 
-(defn input-class
+#_(defn input-class
   "Returns a non-app-state class with an optional `attrs` argument, and arbitrary more arguments.
    It renders as `(render attrs & args)`, where the `attrs` argument
   will contain event handlers for each additional event and function
