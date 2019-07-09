@@ -39,7 +39,7 @@
         ;; Note: must be the empty string, not nil.
         (.setCustomValidity elem "")))))
 
-(reacl/defclass ^:private form-element this value [get-value set-value f attrs & content]
+(reacl/defclass ^:private form-element this value [get-value set-value did-update! f attrs & content]
   refs [it]
 
   component-did-mount
@@ -49,6 +49,7 @@
 
   component-did-update
   (fn []
+    (did-update! (reacl/get-dom (or (:ref attrs it))) value)
     (validate-form-element! attrs it)
     (reacl/return))
   
@@ -74,8 +75,11 @@
 (defn- set-value [attrs value]
   (assoc attrs :value value))
 
+(defn- void [& args] nil)
+
 (c/defc ^:private form-value-element opt app-state [f attrs & content]
-  (apply form-element opt app-state get-value set-value f attrs content))
+  (apply form-element opt app-state get-value set-value void
+         f attrs content))
 
 (defn- get-checked [elem]
   (.-checked elem))
@@ -84,7 +88,8 @@
   (assoc attrs :checked value))
 
 (c/defc ^:private form-checked-element opt app-state [f attrs & content]
-  (apply form-element opt app-state get-checked set-checked f attrs content))
+  (apply form-element opt app-state get-checked set-checked void
+         f attrs content))
 
 (c/defc ^:private input-value opt value [& args]
   (apply form-value-element opt value dom/input args))
@@ -103,15 +108,45 @@
   opt value [attrs]
   (input-value opt value (merge {:type "text"} attrs)))
 
-;; TODO: more input types?
-;; "color" "date" "datetime-local" "email" "month" "number" "password" "search" "tel" "time" "url" "week"
-;; "file" "hidden" "image" "range"
-;; file input is tricky.
-;; but then also make 'real' number inputs?
+(defn- get-files [elem]
+  (array-seq (.-files elem)))
+
+(defn- set-files [attrs files]
+  ;; actually setting files is not allowed. - FIXME: we should check/enforce this, to be safe.
+  attrs)
+
+(defn- maybe-reset-files [input files]
+  ;; actually setting files is not allowed.
+  ;; but we can clear it:
+  (js/console.log "maybe-reset:" files)
+  (when (empty? files)
+    (set! (.-value input) "")))
+
+(reacl/defclass input-files this files [& [attrs]]
+  render
+  (form-element (reacl/opt :reaction (reacl/pass-through-reaction this)) files
+                get-files set-files maybe-reset-files
+                dom/input
+                (merge {:type "file" :multiple true} attrs))
+  
+  handle-message
+  (fn [new-files]
+    (reacl/return :app-state new-files)))
+
+(reacl/defclass input-file this file [& [attrs]]
+  render
+  (input-files (reacl/opt :reaction (reacl/pass-through-reaction this)) (when file (list file))
+               (merge {:multiple false} attrs))
+
+  handle-message
+  (fn [new-files]
+    (reacl/return :app-state (first new-files))))
 
 (defrecord ^:private Cleanup [])
 
 (reacl/defclass ^:private input-parsed this value [parse unparse restrict & [attrs]]
+  ;; extra attrs :cleanup-on-blur?
+  
   ;; Note parse/unparse must not change during livecycle.
   local-state [state (let [s (unparse value)]
                        {:text s
@@ -141,9 +176,6 @@
         ;; nothing changed:
         (reacl/return))))
 
-  ;; TODO: maybe the parent should have the option to force an update of the text? A special message? To be used in onblur for example.
-  ;; or off a version with :text in app-state for that?!
-  
   render
   (input-text #_(reacl/bind-locally this :text)
               (reacl/opt :reaction (reacl/reaction this ->Change))
