@@ -20,11 +20,6 @@
 
 ;; Elements: input, textarea select, (button,  output ?)
 
-;; TODO https://www.w3schools.com/js/js_validation_api.asp
-;; - setCustomValidity?
-;; - checkValidity    (reportValidity)
-;; - Events: onInvalid
-
 (defn- update-attr [m caml-cased-key f & args]
   ;; often caml-cased and lowercased are both possible :-/
   (let [l-key (keyword (str/lower-case (name caml-cased-key)))
@@ -32,9 +27,6 @@
     (-> m
         (dissoc caml-cased-key)
         (assoc l-key (apply f prev args)))))
-
-(defn- update-onchange [m f & args]
-  (apply update-attr m :onChange f args))
 
 (defrecord ^:private Change [value])
 
@@ -65,20 +57,16 @@
                (set-value value)
                (update :ref (fn [prev]
                               (or prev it)))
-               (update-onchange (fn [prev]
-                                  (fn [ev]
-                                    (reacl/send-message! this (->Change (get-value (.-target ev))))
-                                    nil))))
+               (update-attr :onChange (fn [prev]
+                                        (fn [ev]
+                                          (reacl/send-message! this (->Change (get-value (.-target ev))))
+                                          nil))))
          content)
 
   handle-message
   (fn [msg]
     (condp instance? msg
-      Change (reacl/return :app-state (:value msg))
-      
-      #_SetCustomValidity #_(let [elem (reacl/get-dom (or (:ref attrs) it))]
-                              (.setCustomValidity elem (:error-msg msg))
-                              (reacl/return)))))
+      Change (reacl/return :app-state (:value msg)))))
 
 (defn- get-value [elem]
   (.-value elem))
