@@ -117,7 +117,8 @@ For example:
         oargs (mapv (comp symbol clojure.core/name) positional)]
     `(def ~(vary-meta name assoc
                       :doc (str "Route with the pattern " (pr-str pattern) ".")
-                      :arglists (list oargs (conj oargs `'query-params)))
+                      ;;:arglists (list oargs (conj oargs `'query-params)) --- Note: has some bug for clj.
+                      )
        (let [r# (route ~pattern)]
          (swap! defined-routes conj r#)
          r#))))
