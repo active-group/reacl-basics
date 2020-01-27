@@ -2,3 +2,4 @@ target
 .lein*
 .cljs_rhino_repl
 .rebel_readline_history
+pom.xml
