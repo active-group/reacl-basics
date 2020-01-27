@@ -39,6 +39,7 @@ my_client.clj
 "
   (:require [reacl2.core :as reacl :include-macros true]
             [reacl-basics.core :as core :include-macros true]
+            [active.clojure.lens :as lens]
             [reacl-basics.pages.router :as router]
             [reacl-basics.pages.history :as history]))
 
@@ -53,11 +54,12 @@ my_client.clj
                f
                (router/BoundPage. f args)))
 
-(core/defc ^{:doc "A Reacl class that listens to navigation events and
+(reacl/defclass ^{:doc "A Reacl class that listens to navigation events and
   handles [[goto]] actions, and which renders as the
   corresponding [[page]] classes from the given map of routes to
-  pages."}  html5-history-router opt app-state [pages]
-  (router/history-router opt app-state
+  pages."}  html5-history-router this app-state [pages]
+  render
+  (router/history-router (reacl/opt :embed-app-state lens/id) app-state
                          (history/html5-history)
                          pages))
 
