@@ -194,8 +194,9 @@
       Cleanup (reacl/return :local-state (assoc state :text (unparse value))))))
 
 (defn- parse-number [s]
-  ;; Note: "" parses as NaN too
-  (let [x (.parseFloat js/Number s)]
+  ;; Note: "" parses as NaN although it's not isNan; parseFloat ignores trailing extra chars; but isNaN does not:
+  (let [x (when (not (js/isNaN s))
+            (.parseFloat js/Number s))]
     (if (js/isNaN x)
       nil
       x)))
@@ -234,35 +235,43 @@
                 (-> (or attrs {})
                     (update-attr :type #(or % "number")))))
 
-#_(defn- parse-int [s]
-  ;; Note: "" parses as NaN too
-  (let [x (.parseInt js/Number s)]
+(def ^:private integer-regex #"^[-]?\d*$")
+
+(defn- parse-int [s]
+  ;; see parse-number above - we additionally set a regex :pattern attribute (allegedly helps mobiles to show a number input)
+  ;; and use the same here, because otherwise we would parse invalid inputs.
+  (let [x (when (and (not (js/isNaN s))
+                     (.test integer-regex s))
+            (.parseInt js/Number s))]
     (if (js/isNaN x)
       nil
-      x)))
+      (if (integer? x) ;; probably always the case
+        x
+        nil))))
 
-#_(defn- unparse-int [v]
+(defn- unparse-int [v]
   (if v (str v) ""))
 
-#_(defn restrict-int-str [s]
-  (if-let [v (parse-int s)]
-    (unparse-int v)
-    s))
+(defn- restrict-int-chars [old new]
+  (apply str (filter #(.test #"[0-9-]" %) new)))
 
-#_(reacl/defclass input-int this value [& [attrs]]
+(reacl/defclass input-int this value [& [attrs]]
   validate (assert (or (nil? value) (integer? value)))
   
   render
-  (input-parsed (reacl/opt :embed-app-state (fn [_ s] s))
-                value
-                parse-int
-                unparse-int
-                restrict-int-str
-                (-> (or attrs {})
-                    (update-attr :pattern #(or % #"\d*"))
-                    #_(update-attr :pattern #(or % #"[0-9]*"))
-                    #_(update-attr :step #(or % 1))
-                    (update-attr :type #(or % "text")))))
+  (let [attrs (-> (or attrs {})
+                  (update-attr :pattern #(or % integer-regex))
+                  (update-attr :type #(or % "number")))]
+    (input-parsed (reacl/opt :embed-app-state (fn [_ s] s))
+                  value
+                  parse-int
+                  unparse-int
+                  ;; Note with type 'number' we don't even see a lot of the 'invalid' inputs; so restrict-int-chars makes only sense for :text
+                  ;; But that should not be used - on smart phones, the number pad usually only shows up for :type "number".
+                  (if (= "text" (:type attrs))
+                    restrict-int-chars
+                    unrestricted)
+                  attrs)))
 
 (c/defc-dom input-checkbox
   "An app-state class with an optional `attrs` argument, which renders

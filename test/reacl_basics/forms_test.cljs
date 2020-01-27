@@ -124,3 +124,28 @@
       
       )
     (js/console.warn "Test skipped, because no DOM implementation was found.")))
+
+(deftest input-x-test
+  (if-let [document (and js/window (.-document js/window))]
+    (let [c (.createElement document "div")
+          
+          update! (fn [c app-state-atom state & args]
+                    (js/console.log "update!" state)
+                    (apply reacl/render-component c monitor-app-state state app-state-atom forms/input-number args))]
+
+      (let [app-state-atom (atom nil)
+            comp (update! c app-state-atom nil {:type "number"})]
+
+        (add-watch app-state-atom :id
+                   (fn [_]
+                     (js/console.log @app-state-atom)
+                     #_(when-not (empty? @app-state-atom)
+                       (js/window.setTimeout (fn []
+                                               (js/console.log "async update")
+                                               (update! c app-state-atom nil {})) 100))
+                     )
+                   )
+        (.appendChild (.-body document) c))      
+      
+      )
+    (js/console.warn "Test skipped, because no DOM implementation was found.")))
