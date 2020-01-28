@@ -116,7 +116,8 @@
   
   component-will-unmount
   (fn []
-    (history/stop! history))
+    (history/stop! history)
+    (reacl/return))
 
   handle-message
   (fn [msg]
