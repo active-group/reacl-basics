@@ -27,9 +27,7 @@
          (accountant/navigate! path)
          (finally (reset! auto-nav? false))))
   (stop! [_]
-    ;; TODO: commited, but not release by accountant yet: (accountant/unconfigure-navigation!)
-    (accountant/configure-navigation! {}))
-  )
+    (accountant/unconfigure-navigation!)))
 
 (let [glob-h (Html5History. (atom false))]
   (defn html5-history

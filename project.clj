@@ -13,7 +13,7 @@
                  [cljs-ajax "0.8.0" :scope "provided"]
                  [clout "2.2.1"]
                  [com.cemerick/url "0.1.1"]
-                 [venantius/accountant "0.2.4"]]
+                 [venantius/accountant "0.2.5"]]
 
   :plugins [[lein-cljsbuild "1.1.7"]]
 

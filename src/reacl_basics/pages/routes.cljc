@@ -46,10 +46,10 @@
                            (vector)))))))
 
 #?(:cljs
-   (defrecord ^:private Route [c-pattern]
+   (defrecord ^:private Route [pattern]
               IRoutable
               (-unparse-uri [_ args]
-                (let [{:keys [source re keys absolute?]} c-pattern
+                (let [{:keys [source re keys absolute?]} (clout/route-compile pattern)
                       _ (assert (or (= (count args) (count keys))
                                     (= (count args) (inc (count keys)))))
                       positional (map vector
@@ -70,16 +70,19 @@
               (-parse-uri [this uri]
                 (let [furl (url/url uri)]
                   ;; in particular, we must remove the query params to use clout:
-                  (parse-request c-pattern {:uri (:path furl)
-                                            :query-params (:query furl)})))))
+                  (parse-request (clout/route-compile pattern)
+                                 {:uri (:path furl)
+                                  :query-params (:query furl)})))))
 
 #?(:clj
-   (defrecord ^:private Route [c-pattern]
+   (defrecord ^:private Route [pattern]
      IRoutable 
-     (-route-matches [_ request] (parse-request c-pattern request))))
+     (-route-matches [_ request] (parse-request (clout/route-compile pattern) request))))
 
 (defn ^:no-doc route [pattern]
-  (Route. (clout/route-compile pattern)))
+  ;; Note: equal patterns don't make equal compiled routes :( Storing only the original pattern as a remedy.
+  (assert (clout/route-compile pattern) (str "Invalid route pattern: " pattern))
+  (Route. pattern))
 
 (defn clear-routes!
   "Clears the global set of [[defined-routes]]."
@@ -116,9 +119,9 @@ For example:
         pargs (mapv (fn [_] (gensym "arg")) positional)
         oargs (mapv (comp symbol clojure.core/name) positional)]
     `(def ~(vary-meta name assoc
-                      :doc (str "Route with the pattern " (pr-str pattern) ".")
-                      ;;:arglists (list oargs (conj oargs `'query-params)) --- Note: has some bug for clj.
-                      )
+                          :doc (str "Route with the pattern " (pr-str pattern) ".")
+                          ;;:arglists (list oargs (conj oargs `'query-params)) --- Note: has some bug for clj.
+                          )
        (let [r# (route ~pattern)]
          (swap! defined-routes conj r#)
          r#))))
