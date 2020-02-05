@@ -1,4 +1,4 @@
-(defproject de.active-group/reacl-basics "0.1.1-SNAPSHOT"
+(defproject de.active-group/reacl-basics "0.1.1"
   :description "Reusable Reacl classes, auxiliary functions and macros."
   
   :url "https://github.com/active-group/reacl-basics"
