@@ -9,7 +9,7 @@
   :dependencies [[org.clojure/clojure "1.9.0"]
                  [org.clojure/clojurescript "1.10.238"]
                  [active-clojure "0.26.0"]
-                 [reacl "2.1.3"]
+                 [reacl "2.2.0"]
                  [cljs-ajax "0.8.0" :scope "provided"]
                  [clout "2.2.1"]
                  [com.cemerick/url "0.1.1"]
