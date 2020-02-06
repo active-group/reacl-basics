@@ -47,6 +47,29 @@
 
 #?(:cljs
    (defrecord ^:private Route [pattern]
+              IFn
+              (-invoke [this] (href this))
+              (-invoke [this a] (href this a))
+              (-invoke [this a b] (href this a b))
+              (-invoke [this a b c] (href this a b c))
+              (-invoke [this a b c d] (href this a b c d))
+              (-invoke [this a b c d e] (href this a b c d e))
+              (-invoke [this a b c d e f] (href this a b c d e f))
+              (-invoke [this a b c d e f g] (href this a b c d e f g))
+              (-invoke [this a b c d e f g h] (href this a b c d e f g h))
+              (-invoke [this a b c d e f g h i] (href this a b c d e f g h i))
+              (-invoke [this a b c d e f g h i j] (href this a b c d e f g h i j))
+              (-invoke [this a b c d e f g h i j k] (href this a b c d e f g h i j k))
+              (-invoke [this a b c d e f g h i j k l] (href this a b c d e f g h i j k l))
+              (-invoke [this a b c d e f g h i j k l m] (href this a b c d e f g h i j k l m))
+              (-invoke [this a b c d e f g h i j k l m n] (href this a b c d e f g h i j k l m n))
+              (-invoke [this a b c d e f g h i j k l m n o] (href this a b c d e f g h i j k l m n o))
+              (-invoke [this a b c d e f g h i j k l m n o p] (href this a b c d e f g h i j k l m n o p))
+              (-invoke [this a b c d e f g h i j k l m n o p q] (href this a b c d e f g h i j k l m n o p q))
+              (-invoke [this a b c d e f g h i j k l m n o p q r] (href this a b c d e f g h i j k l m n o p q r))
+              (-invoke [this a b c d e f g h i j k l m n o p q r s] (href this a b c d e f g h i j k l m n o p q r s))
+              (-invoke [this a b c d e f g h i j k l m n o p q r s t] (href this a b c d e f g h i j k l m n o p q r s t))
+              (-invoke [this a b c d e f g h i j k l m n o p q r s t rest] (apply href this a b c d e f g h i j k l m n o p q r s t rest))
               IRoutable
               (-unparse-uri [_ args]
                 (let [{:keys [source re keys absolute?]} (clout/route-compile pattern)

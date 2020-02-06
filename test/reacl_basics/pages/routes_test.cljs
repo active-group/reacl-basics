@@ -42,4 +42,6 @@
          1))
   (is (routes/routable? test-r))
   (is (= (routes/href test-r "123")
-         "/abc/123")))
+         "/abc/123"))
+
+  (is (= (routes/href test-r "123") (test-r "123"))))
