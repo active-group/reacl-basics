@@ -49,7 +49,7 @@
 
   component-did-update
   (fn []
-    (did-update! (reacl/get-dom (or (:ref attrs it))) value)
+    (did-update! (reacl/get-dom (or (:ref attrs) it)) value)
     (validate-form-element! attrs it)
     (reacl/return))
   
@@ -118,7 +118,6 @@
 (defn- maybe-reset-files [input files]
   ;; actually setting files is not allowed.
   ;; but we can clear it:
-  (js/console.log "maybe-reset:" files)
   (when (empty? files)
     (set! (.-value input) "")))
 
