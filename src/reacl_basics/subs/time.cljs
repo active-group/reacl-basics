@@ -26,7 +26,7 @@
           (browser/clear-timeout id))]
   (defn sequence
     "Returns a subscribable that will yield all values from the
-  given (lazy) sequence in `ms` millisecond stepts. The first value
+  given (lazy) sequence in `ms` millisecond steps. The first value
   will be available immediately."
     [value-seq ms]
     (core/simple browser/clear-timeout
